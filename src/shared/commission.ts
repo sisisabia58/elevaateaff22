@@ -37,8 +37,10 @@ export function parseCommissionPayload(raw: unknown, price: number | null): Live
   return { ratePct, amount, xtraRatePct, promotedLast7d, freeSample };
 }
 
-export function parseCommissionList(raw: unknown): Map<string, { ratePct: number; freeSample: boolean | null }> {
-  const found = new Map<string, { ratePct: number; freeSample: boolean | null }>();
+export function parseCommissionList(
+  raw: unknown,
+): Map<string, { ratePct: number; freeSample: boolean | null; promotedLast7d: number | null }> {
+  const found = new Map<string, { ratePct: number; freeSample: boolean | null; promotedLast7d: number | null }>();
   const root = asRecord(raw);
   const data = root && "data" in root ? root.data : raw;
   const bag = asRecord(data);
@@ -58,7 +60,11 @@ export function parseCommissionList(raw: unknown): Map<string, { ratePct: number
       const ratePct = asNumber(row.default_commission_rate);
       if (itemId == null || ratePct === null) continue;
       const freeSample = typeof row.is_free_sample === "boolean" ? row.is_free_sample : null;
-      found.set(String(itemId), { ratePct, freeSample });
+      found.set(String(itemId), {
+        ratePct,
+        freeSample,
+        promotedLast7d: asNumber(row.affiliate_promoted_last_7days),
+      });
     }
   }
   return found;

@@ -156,10 +156,9 @@ async function fetchItem(shopId: string, itemId: string) {
   }
 }
 
-function stockFrom(json: unknown): { stock: number | null; images: string[] } {
+function detailFrom(json: unknown) {
   const list = extractItemList(json);
-  const parsed = parseScoutEntry(list?.[0] ?? json, location.origin);
-  return { stock: parsed?.stock ?? null, images: parsed?.images ?? [] };
+  return parseScoutEntry(list?.[0] ?? json, location.origin);
 }
 
 async function fetchStock(shopId: string, itemId: string) {
@@ -173,10 +172,41 @@ async function fetchStock(shopId: string, itemId: string) {
       return;
     }
     const json = (await response.json()) as unknown;
-    const detail = stockFrom(json);
-    post({ type: "STOCK", itemId, stock: detail.stock, images: detail.images, stopped: false });
+    const detail = detailFrom(json);
+    post({
+      type: "STOCK",
+      itemId,
+      stock: detail?.stock ?? null,
+      images: detail?.images ?? [],
+      item: detail,
+      stopped: false,
+    });
   } catch {
     post({ type: "STOCK", itemId, stopped: true });
+  }
+}
+
+function shopCtimeFrom(json: unknown): number | null {
+  const root = json !== null && typeof json === "object" ? (json as Record<string, unknown>) : null;
+  const data = root && typeof root.data === "object" && root.data ? (root.data as Record<string, unknown>) : root;
+  const value = data?.ctime ?? data?.create_time ?? data?.shop_ctime ?? data?.register_time;
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+async function fetchShop(shopId: string) {
+  try {
+    const response = await originalFetch(
+      `${location.origin}/api/v4/shop/get_shop_detail?shopid=${encodeURIComponent(shopId)}`,
+      { credentials: "include", headers: { Accept: "application/json" } },
+    );
+    if (response.status === 403 || response.status === 429) {
+      post({ type: "SHOP", itemId: shopId, stopped: true });
+      return;
+    }
+    const json = (await response.json()) as unknown;
+    post({ type: "SHOP", itemId: shopId, ctime: shopCtimeFrom(json), stopped: false });
+  } catch {
+    post({ type: "SHOP", itemId: shopId, ctime: null, stopped: false });
   }
 }
 
@@ -221,5 +251,6 @@ window.addEventListener("message", (event) => {
   }
   if (data.type === "FETCH_ITEM" && data.shopId && data.itemId) void fetchItem(data.shopId, data.itemId);
   if (data.type === "FETCH_STOCK" && data.shopId && data.itemId) void fetchStock(data.shopId, data.itemId);
+  if (data.type === "FETCH_SHOP" && data.shopId) void fetchShop(data.shopId);
   if (data.type === "FETCH_REVIEWS" && data.shopId && data.itemId) void fetchReviews(data.shopId, data.itemId);
 });

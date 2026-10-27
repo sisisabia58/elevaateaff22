@@ -42,8 +42,22 @@ export const elevateCss = `
   box-shadow: none;
 }
 .ea-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; margin: 8px 0 4px; }
-.ea-bar { flex: 1; background: #e5f4ee; border-radius: 6px 6px 0 0; min-height: 4px; }
-.ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; }
+.ea-bar { flex: 1; background: transparent; border: 0; padding: 0; min-height: 8px; display: flex; align-items: flex-end; }
+.ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; }
+.ea-bar[aria-pressed="true"] span { background: #1c1915; }
+.ea-scout.analisa { max-height: min(78vh, 860px); }
+.ea-analisa-scroll { overflow: auto; max-height: 360px; padding: 0 8px 10px; }
+.ea-analisa table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+.ea-analisa th, .ea-analisa td { padding: 6px 8px; border-bottom: 1px solid #eee6da; text-align: left; vertical-align: top; }
+.ea-analisa th button { border: 0; background: transparent; font-weight: 700; padding: 0; }
+.ea-analisa td span, .ea-analisa td b { display: block; }
+.ea-analisa td span { color: #6d655b; font-size: 11px; }
+.ea-scout-tools input, .ea-scout-tools select {
+  border: 1px solid #e6dfd2;
+  border-radius: 10px;
+  background: #fff;
+  padding: 6px 8px;
+}
 .ea-summary { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 14px 8px; }
 .ea-summary div { background: #f7f3ec; border-radius: 10px; padding: 8px 10px; min-width: 90px; }
 .ea-summary strong { display: block; font-size: 14px; }

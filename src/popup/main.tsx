@@ -27,6 +27,7 @@ function PopupApp() {
   const [tab, setTab] = useState<TabState>(EMPTY);
   const [note, setNote] = useState<string | null>(null);
   const [ranking, setRanking] = useState<unknown>(null);
+  const [reviews, setReviews] = useState<unknown[]>([]);
 
   useEffect(() => {
     void loadSettings().then(setSettings);
@@ -84,9 +85,13 @@ function PopupApp() {
                     setNote(payload?.error || "Ulasan tidak masuk. Buka kartu di halaman produk.");
                     return;
                   }
-                  void callFeatureProxy("variant_ranking", { reviews: payload.reviews }).then((result) => {
-                    if (!result.ok) setNote(result.error);
-                    else {
+                  const rows = Array.isArray(payload.reviews) ? payload.reviews : [];
+                  setReviews(rows);
+                  void callFeatureProxy("variant_ranking", { reviews: rows }).then((result) => {
+                    if (!result.ok) {
+                      setRanking(null);
+                      setNote(result.error);
+                    } else {
                       setRanking(result.data);
                       setNote(null);
                     }
@@ -96,7 +101,7 @@ function PopupApp() {
             }
           : undefined
       }
-      ranking={ranking ? <RankingList data={ranking} /> : null}
+      ranking={ranking || reviews.length ? <RankingList data={ranking} reviews={reviews} /> : null}
       onCopyCaption={() => {
         if (!tab.item) return;
         const caption = buildCaptions(tab.item, market, settings.tone)[0];

@@ -29,6 +29,16 @@ export type ScoutItem = {
   url: string;
   stock?: number | null;
   images?: string[];
+  monthlySold?: number | null;
+  monthlySoldText?: string | null;
+  soldText?: string | null;
+  ctime?: number | null;
+  ratingCount?: number | null;
+  wishlist?: number | null;
+  soldOut?: boolean | null;
+  adKeyword?: string | null;
+  adMode?: string | null;
+  shopCtime?: number | null;
 };
 
 export type LiveCommission = {

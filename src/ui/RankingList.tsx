@@ -1,20 +1,41 @@
-export function RankingList({ data }: { data: unknown }) {
-  const record = data !== null && typeof data === "object" ? (data as Record<string, unknown>) : null;
-  const period = (record?.all ?? record?.d30 ?? record) as Record<string, unknown> | null;
-  const sorted = period && Array.isArray(period.sorted) ? (period.sorted as Array<{ name?: string; count?: number }>) : null;
-  if (!sorted?.length) {
-    return <pre className="ea-panel-text">{JSON.stringify(data, null, 2).slice(0, 1200)}</pre>;
-  }
-  const max = Math.max(1, ...sorted.map((row) => row.count || 0));
+import { useState } from "react";
+import { rankingForPeriod, type VariantPeriod } from "../shared/analytics";
+
+const PERIODS: Array<{ id: VariantPeriod; label: string }> = [
+  { id: "all", label: "Semua" },
+  { id: "d30", label: "30 hari" },
+  { id: "d90", label: "90 hari" },
+];
+
+export function RankingList({ data, reviews }: { data: unknown; reviews?: unknown[] }) {
+  const [period, setPeriod] = useState<VariantPeriod>("all");
+  const tally = rankingForPeriod(data, reviews, period);
+  const max = Math.max(1, ...tally.sorted.map((row) => row.count));
   return (
     <div>
-      {sorted.slice(0, 8).map((row) => (
-        <div key={row.name || String(row.count)} className="ea-rank">
-          <span>{row.name || "Varian"}</span>
-          <b>{row.count ?? 0}</b>
-          <i style={{ width: `${((row.count || 0) / max) * 100}%` }} />
-        </div>
-      ))}
+      <div className="ea-sort" role="group" aria-label="Periode varian">
+        {PERIODS.map((entry) => (
+          <button key={entry.id} type="button" aria-pressed={period === entry.id} onClick={() => setPeriod(entry.id)}>
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      {tally.sorted.length === 0 ? (
+        <p className="ea-note">Belum ada varian pada periode ini.</p>
+      ) : (
+        tally.sorted.slice(0, 8).map((row) => (
+          <div key={row.name} className="ea-rank">
+            <span>{row.name}</span>
+            <b>{row.count}</b>
+            <i style={{ width: `${(row.count / max) * 100}%` }} />
+          </div>
+        ))
+      )}
+      {tally.withoutVariant > 0 && (
+        <p className="ea-note">
+          {tally.withoutVariant.toLocaleString("id-ID")} ulasan tidak menyebut varian.
+        </p>
+      )}
     </div>
   );
 }

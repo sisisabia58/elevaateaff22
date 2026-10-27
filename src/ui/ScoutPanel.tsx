@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { formatMoney, formatRate } from "../shared/money";
 import type { HistogramBucket, ShopSummary } from "../shared/research";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
+import { AnalisaTable } from "./AnalisaTable";
 import { elevateCss } from "./css";
 
 export type ScoutSort = "commission" | "sold" | "price";
@@ -45,6 +47,14 @@ export function ScoutPanel({
   onPaginate,
   onShopNote,
   taskNote,
+  initialAnalisa = false,
+  shopCtimes,
+  relation = null,
+  onShopAge,
+  onAffiliate,
+  onSoldOut,
+  onCategory,
+  onShopResearch,
 }: {
   title: string;
   items: ScoutItem[];
@@ -69,11 +79,20 @@ export function ScoutPanel({
   onPaginate?: () => void;
   onShopNote?: () => void;
   taskNote?: string;
+  initialAnalisa?: boolean;
+  shopCtimes?: Record<string, number>;
+  relation?: "Toko sendiri" | "Toko kompetitor" | null;
+  onShopAge?: () => void;
+  onAffiliate?: () => void;
+  onSoldOut?: () => void;
+  onCategory?: () => void;
+  onShopResearch?: () => void;
 }) {
+  const [analisa, setAnalisa] = useState(initialAnalisa);
   const visible = adsOnly ? items.filter((item) => item.isAd) : items;
   const ordered = sortScout(visible, commissions, sort);
   const maxBucket = Math.max(1, ...histogram.map((bucket) => bucket.count));
-  const className = placement === "dock" ? "ea-scout dock" : embedded ? "ea-scout embedded" : "ea-scout";
+  const className = `${placement === "dock" ? "ea-scout dock" : embedded ? "ea-scout embedded" : "ea-scout"}${analisa ? " analisa" : ""}`;
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
@@ -168,8 +187,31 @@ export function ScoutPanel({
                   Catatan toko
                 </button>
               )}
+              <button className="ea-btn" type="button" aria-pressed={analisa} onClick={() => setAnalisa((value) => !value)}>
+                {analisa ? "Daftar" : "Analisa"}
+              </button>
             </div>
-            {taskNote && <p className="ea-note" style={{ padding: "0 14px" }}>{taskNote}</p>}
+            {taskNote && !analisa && <p className="ea-note" style={{ padding: "0 14px" }}>{taskNote}</p>}
+            {analisa && (
+              <AnalisaTable
+                items={items}
+                market={market}
+                commissions={commissions}
+                shopCtimes={shopCtimes}
+                relation={relation}
+                running={running}
+                taskNote={taskNote}
+                onStop={onStop}
+                onShopAge={onShopAge}
+                onDeepen={onDeepen}
+                onAffiliate={onAffiliate}
+                onSoldOut={onSoldOut}
+                onCategory={onCategory}
+                onShopResearch={onShopResearch}
+              />
+            )}
+            {!analisa && (
+            <>
             <div className="ea-list">
               {ordered.slice(0, 40).map((item) => {
                 const commission = commissions[item.itemId];
@@ -192,6 +234,8 @@ export function ScoutPanel({
               <div className="ea-body">
                 <p className="ea-note">Menampilkan 40 dari {ordered.length}. Ubah urutan untuk melihat yang lain. CSV tetap berisi semuanya.</p>
               </div>
+            )}
+            </>
             )}
           </>
         )}

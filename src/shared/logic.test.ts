@@ -65,7 +65,7 @@ describe("commission payload", () => {
       code: 0,
       data: { list: [{ item_id: 200, default_commission_rate: 9, is_free_sample: false }] },
     });
-    expect(map.get("200")).toEqual({ ratePct: 9, freeSample: false });
+    expect(map.get("200")).toEqual({ ratePct: 9, freeSample: false, promotedLast7d: null });
   });
 
   it("extracts an affiliate offer link", () => {

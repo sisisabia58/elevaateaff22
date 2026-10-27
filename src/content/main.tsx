@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
+import { pageAnalytics, shopRelation } from "../shared/analytics";
 import { buildCaptions } from "../shared/captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
@@ -31,6 +32,7 @@ type PageMessage = {
   stopped?: boolean;
   reviews?: unknown[];
   error?: string;
+  ctime?: number | null;
   shopeeUserId?: string;
   username?: string | null;
   shopId?: string | null;
@@ -81,17 +83,21 @@ function Overlay() {
   const [dockMount, setDockMount] = useState<HTMLElement | null>(null);
   const [panel, setPanel] = useState<{ title: string; body: string } | null>(null);
   const [ranking, setRanking] = useState<unknown>(null);
+  const [reviewRows, setReviewRows] = useState<unknown[]>([]);
+  const [shopCtimes, setShopCtimes] = useState<Record<string, number>>({});
   const liveRef = useRef(live);
   const productRef = useRef(product);
   const itemsRef = useRef(items);
   const hrefRef = useRef(href);
   const stopRef = useRef(false);
+  const shopCtimesRef = useRef(shopCtimes);
   const waiters = useRef(new Set<(data: PageMessage) => void>());
   const reported = useRef(new Set<string>());
   liveRef.current = live;
   productRef.current = product;
   itemsRef.current = items;
   hrefRef.current = href;
+  shopCtimesRef.current = shopCtimes;
 
   const market = marketFromHost(location.hostname);
   const kind = classifyLocation(href);
@@ -270,14 +276,31 @@ function Overlay() {
 
   function applyStock(message: PageMessage) {
     if (!message.itemId) return;
-    const patch = (item: ScoutItem): ScoutItem =>
-      item.itemId === message.itemId
-        ? {
-            ...item,
-            stock: message.stock ?? item.stock,
-            images: message.images?.length ? message.images : item.images,
-          }
-        : item;
+    const detail = message.item;
+    const patch = (item: ScoutItem): ScoutItem => {
+      if (item.itemId !== message.itemId) return item;
+      if (!detail) {
+        return {
+          ...item,
+          stock: message.stock ?? item.stock,
+          images: message.images?.length ? message.images : item.images,
+        };
+      }
+      return {
+        ...item,
+        stock: detail.stock ?? message.stock ?? item.stock,
+        images: detail.images?.length ? detail.images : item.images,
+        sold: detail.sold ?? item.sold,
+        monthlySold: detail.monthlySold ?? item.monthlySold,
+        monthlySoldText: detail.monthlySoldText ?? item.monthlySoldText,
+        ctime: detail.ctime ?? item.ctime,
+        wishlist: detail.wishlist ?? item.wishlist,
+        ratingCount: detail.ratingCount ?? item.ratingCount,
+        rating: detail.rating ?? item.rating,
+        soldOut: detail.soldOut ?? item.soldOut,
+        soldText: detail.soldText ?? item.soldText,
+      };
+    };
     setItems((current) => current.map(patch));
     setProduct((current) => (current ? patch(current) : current));
   }
@@ -307,7 +330,7 @@ function Overlay() {
             ratePct: row.ratePct,
             amount: (item.price * row.ratePct) / 100,
             xtraRatePct: null,
-            promotedLast7d: null,
+            promotedLast7d: row.promotedLast7d,
             freeSample: row.freeSample,
           };
         }
@@ -357,6 +380,7 @@ function Overlay() {
     setRunning(true);
     let cursor = 0;
     let blocked = false;
+    let streak = 0;
     async function worker() {
       while (!stopRef.current && !blocked) {
         const index = cursor;
@@ -367,9 +391,11 @@ function Overlay() {
         askPage({ type: "FETCH_STOCK", shopId: item.shopId, itemId: item.itemId });
         const message = await waitPage("STOCK", item.itemId, 8000);
         if (!message || message.stopped) {
-          blocked = true;
-          return;
+          streak += 1;
+          if (streak >= 3) blocked = true;
+          continue;
         }
+        streak = 0;
         applyStock(message);
         await delay(900);
       }
@@ -412,6 +438,178 @@ function Overlay() {
     setTaskNote(note);
   }
 
+  function readShopRelation(): "Toko sendiri" | "Toko kompetitor" {
+    const nodes = document.querySelectorAll("button, a, span");
+    let hasFollow = false;
+    let hasChat = false;
+    for (const node of nodes) {
+      const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length > 16) continue;
+      if (/^\+?\s*(ikuti|follow)$/i.test(text)) hasFollow = true;
+      if (/^chat$/i.test(text)) hasChat = true;
+      if (hasFollow && hasChat) break;
+    }
+    return shopRelation(hasFollow, hasChat);
+  }
+
+  function findShortControl(pattern: RegExp): HTMLElement | null {
+    const nodes = document.querySelectorAll("button, a, [role='tab']");
+    for (const node of nodes) {
+      const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+      if (!text || text.length > 24) continue;
+      if (pattern.test(text)) return node as HTMLElement;
+    }
+    return null;
+  }
+
+  async function fetchShopAges() {
+    if (running) return;
+    const ids = [...new Set(itemsRef.current.map((item) => item.shopId))].filter((id) => shopCtimesRef.current[id] == null);
+    if (!ids.length) {
+      setTaskNote(itemsRef.current.length ? "Umur toko sudah ada." : "Belum ada produk.");
+      return;
+    }
+    stopRef.current = false;
+    setRunning(true);
+    let cursor = 0;
+    let blocked = false;
+    async function worker() {
+      while (!stopRef.current && !blocked) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= ids.length) return;
+        const shopId = ids[index];
+        setTaskNote(`Umur toko ${index + 1}/${ids.length}`);
+        askPage({ type: "FETCH_SHOP", shopId });
+        const message = await waitPage("SHOP", shopId, 8000);
+        if (message?.stopped) {
+          blocked = true;
+          return;
+        }
+        if (message?.ctime) {
+          setShopCtimes((current) => ({ ...current, [shopId]: message.ctime as number }));
+        }
+        await delay(700);
+      }
+    }
+    await Promise.all([worker(), worker()]);
+    setRunning(false);
+    setTaskNote(blocked ? "Shopee menghentikan umur toko." : stopRef.current ? "Dihentikan." : "Umur toko selesai.");
+  }
+
+  async function checkAffiliates() {
+    const client = clientRef.current;
+    if (!client || running) return;
+    const affiliate = client;
+    stopRef.current = false;
+    setRunning(true);
+    void pingFeature("commission_check");
+    let batch = itemsRef.current;
+    if (kind === "shop" && batch[0]) {
+      setTaskNote("Membaca daftar komisi toko…");
+      const result = await affiliate.fetchList(batch[0].shopId);
+      const found = parseCommissionList(result.data);
+      if (result.ok && found.size > 0) {
+        setLive((current) => {
+          const next = { ...current };
+          for (const item of itemsRef.current) {
+            const row = found.get(item.itemId);
+            if (!row) continue;
+            const previous = next[item.itemId];
+            next[item.itemId] = {
+              ratePct: row.ratePct,
+              amount: previous?.amount ?? (item.price * row.ratePct) / 100,
+              xtraRatePct: previous?.xtraRatePct ?? null,
+              promotedLast7d: row.promotedLast7d ?? previous?.promotedLast7d ?? null,
+              freeSample: row.freeSample,
+            };
+          }
+          return next;
+        });
+        batch = batch.filter((item) => found.get(item.itemId)?.promotedLast7d == null);
+      }
+    }
+    if (!batch.length) {
+      setRunning(false);
+      setTaskNote("Jumlah affiliate terisi dari daftar toko.");
+      return;
+    }
+    let cursor = 0;
+    let hits = 0;
+    async function worker() {
+      while (!stopRef.current) {
+        const index = cursor;
+        cursor += 1;
+        if (index >= batch.length) return;
+        const item = batch[index];
+        setTaskNote(`Affiliate ${index + 1}/${batch.length}`);
+        const result = await affiliate.fetchCommission(item.itemId);
+        const parsed = parseCommissionPayload(result.data, item.price);
+        if (parsed) {
+          hits += 1;
+          setLive((current) => ({
+            ...current,
+            [item.itemId]: {
+              ...parsed,
+              promotedLast7d: parsed.promotedLast7d ?? current[item.itemId]?.promotedLast7d ?? null,
+            },
+          }));
+        }
+        if (index < batch.length - 1) await delay(700);
+      }
+    }
+    await Promise.all([worker(), worker()]);
+    setRunning(false);
+    setTaskNote(stopRef.current ? "Dihentikan." : hits > 0 ? `Affiliate 7 hari · ${hits} produk` : "Sesi affiliate belum kebaca");
+  }
+
+  async function loadSoldOut() {
+    if (running) return;
+    if (kind !== "shop") {
+      setTaskNote("Tab produk habis tidak ketemu.");
+      return;
+    }
+    const tab = findShortControl(/^(habis|sold out|stok habis)$/i);
+    if (!tab) {
+      setTaskNote("Tab produk habis tidak ketemu.");
+      return;
+    }
+    tab.click();
+    setTaskNote("Membuka tab produk habis.");
+    await delay(800);
+    await paginate();
+  }
+
+  function researchPayload(list: ScoutItem[]) {
+    const page = pageAnalytics(list);
+    const names = [...list]
+      .sort((a, b) => (b.monthlySold ?? b.sold ?? 0) - (a.monthlySold ?? a.sold ?? 0))
+      .slice(0, 8)
+      .map((item) => item.name);
+    return {
+      summary: page,
+      names,
+      counts: page.count,
+      averages: { price: page.averagePrice, trend: page.averageTrend, soldPerMonth: page.averageSoldPerMonth },
+    };
+  }
+
+  function localResearchNote(list: ScoutItem[]) {
+    const page = pageAnalytics(list);
+    const trend = page.averageTrend === null ? "trend belum cukup" : `trend rata-rata ${page.averageTrend.toFixed(0)}%`;
+    const monthly = page.averageSoldPerMonth === null ? "terjual per bulan belum cukup" : `terjual per bulan ${Math.round(page.averageSoldPerMonth).toLocaleString("id-ID")}`;
+    return `${page.count} produk, ${page.totalSold.toLocaleString("id-ID")} terjual, harga rata-rata ${formatMoney(page.averagePrice, market)}, ${monthly}, ${trend}.`;
+  }
+
+  async function askResearch(feature: string) {
+    if (!settings) return;
+    const list = itemsRef.current;
+    setTaskNote("Menghubungi Gemini…");
+    void pingFeature(feature);
+    const result = await callAiProxy(feature, researchPayload(list), settings.geminiApiKey, settings.geminiModel);
+    setTaskNote(result.ok ? result.text : `${result.error} ${localResearchNote(list)}`);
+  }
+
   async function copyAffiliateLink() {
     if (!product || !clientRef.current) return;
     setLinkLabel("Mengambil link…");
@@ -446,8 +644,11 @@ function Overlay() {
       setPanel({ title: "Peringkat varian", body: message?.error || "Ulasan tidak masuk." });
       return;
     }
-    const result = await callFeatureProxy("variant_ranking", { reviews: message.reviews ?? [] });
+    const reviews = message.reviews ?? [];
+    setReviewRows(reviews);
+    const result = await callFeatureProxy("variant_ranking", { reviews });
     if (!result.ok) {
+      setRanking(null);
       setPanel({ title: "Peringkat varian", body: result.error });
       return;
     }
@@ -487,21 +688,15 @@ function Overlay() {
       }}
       onDeepen={() => void deepen()}
       onPaginate={() => void paginate()}
-      onShopNote={
-        kind === "shop"
-          ? () => {
-              setTaskNote("Menghubungi Gemini…");
-              void pingFeature("shop_research");
-              void callAiProxy(
-                "shop_research",
-                { summary, names: items.slice(0, 12).map((item) => item.name) },
-                settings.geminiApiKey,
-                settings.geminiModel,
-              ).then((result) => setTaskNote(result.ok ? result.text : result.error));
-            }
-          : undefined
-      }
+      onShopNote={kind === "shop" ? () => void askResearch("shop_research") : undefined}
       taskNote={taskNote}
+      shopCtimes={shopCtimes}
+      relation={kind === "shop" ? readShopRelation() : null}
+      onShopAge={() => void fetchShopAges()}
+      onAffiliate={() => void checkAffiliates()}
+      onSoldOut={kind === "shop" ? () => void loadSoldOut() : undefined}
+      onCategory={() => void askResearch("riset_kategori")}
+      onShopResearch={() => void askResearch("shop_research")}
     />
   );
 
@@ -559,7 +754,7 @@ function Overlay() {
           }}
           onRank={() => void rankHere()}
           panel={panel}
-          ranking={ranking ? <RankingList data={ranking} /> : null}
+          ranking={reviewRows.length || ranking ? <RankingList data={ranking} reviews={reviewRows} /> : null}
         />
       )}
       {showScout && dockMount ? createPortal(scout, dockMount) : null}
