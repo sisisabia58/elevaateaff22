@@ -1,4 +1,5 @@
 import { formatMoney, formatRate } from "../shared/money";
+import type { HistogramBucket, ShopSummary } from "../shared/research";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
 
@@ -33,6 +34,17 @@ export function ScoutPanel({
   checkLabel,
   onClose,
   embedded = false,
+  placement = "float",
+  summary = null,
+  histogram = [],
+  adsOnly = false,
+  onAdsOnly,
+  running = false,
+  onStop,
+  onDeepen,
+  onPaginate,
+  onShopNote,
+  taskNote,
 }: {
   title: string;
   items: ScoutItem[];
@@ -46,12 +58,26 @@ export function ScoutPanel({
   checkLabel: string;
   onClose: () => void;
   embedded?: boolean;
+  placement?: "float" | "dock";
+  summary?: ShopSummary | null;
+  histogram?: HistogramBucket[];
+  adsOnly?: boolean;
+  onAdsOnly?: (value: boolean) => void;
+  running?: boolean;
+  onStop?: () => void;
+  onDeepen?: () => void;
+  onPaginate?: () => void;
+  onShopNote?: () => void;
+  taskNote?: string;
 }) {
-  const ordered = sortScout(items, commissions, sort);
+  const visible = adsOnly ? items.filter((item) => item.isAd) : items;
+  const ordered = sortScout(visible, commissions, sort);
+  const maxBucket = Math.max(1, ...histogram.map((bucket) => bucket.count));
+  const className = placement === "dock" ? "ea-scout dock" : embedded ? "ea-scout embedded" : "ea-scout";
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
-      <aside className={embedded ? "ea-scout embedded" : "ea-scout"} aria-label="Scout Elevate Affiliate">
+      <aside className={className} aria-label="Scout Elevate Affiliate">
         <div className="ea-scout-head">
           <div className="ea-mark">E</div>
           <div className="ea-brand">
@@ -63,6 +89,36 @@ export function ScoutPanel({
             ×
           </button>
         </div>
+        {summary && (
+          <div className="ea-summary">
+            <div>
+              <strong>{summary.count}</strong>
+              <span>produk</span>
+            </div>
+            <div>
+              <strong>
+                {formatMoney(summary.minPrice, market)}–{formatMoney(summary.maxPrice, market)}
+              </strong>
+              <span>rentang harga</span>
+            </div>
+            <div>
+              <strong>{summary.top3SharePct.toFixed(0)}%</strong>
+              <span>terjual di 3 teratas</span>
+            </div>
+          </div>
+        )}
+        {histogram.length > 0 && (
+          <div className="ea-body">
+            <div className="ea-kicker">Sebaran harga</div>
+            <div className="ea-bars" aria-hidden="true">
+              {histogram.map((bucket) => (
+                <div key={bucket.label} className="ea-bar" title={`${bucket.label}: ${bucket.count}`}>
+                  <span style={{ height: `${Math.max(8, (bucket.count / maxBucket) * 72)}px` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {items.length === 0 ? (
           <div className="ea-body">
             <div className="ea-empty">
@@ -80,13 +136,40 @@ export function ScoutPanel({
               ))}
             </div>
             <div className="ea-scout-tools">
-              <button className="ea-btn primary" type="button" onClick={onCheckLive}>
-                {checkLabel}
-              </button>
+              {running && onStop ? (
+                <button className="ea-btn" type="button" onClick={onStop}>
+                  Stop
+                </button>
+              ) : (
+                <button className="ea-btn primary" type="button" onClick={onCheckLive}>
+                  {checkLabel}
+                </button>
+              )}
               <button className="ea-btn" type="button" onClick={onExport}>
                 CSV
               </button>
+              {onAdsOnly && (
+                <button className="ea-btn" type="button" aria-pressed={adsOnly} onClick={() => onAdsOnly(!adsOnly)}>
+                  {adsOnly ? "Semua" : "Iklan saja"}
+                </button>
+              )}
+              {onDeepen && (
+                <button className="ea-btn" type="button" onClick={onDeepen} disabled={running}>
+                  Perdalam stok
+                </button>
+              )}
+              {onPaginate && (
+                <button className="ea-btn" type="button" onClick={onPaginate} disabled={running}>
+                  Halaman berikut
+                </button>
+              )}
+              {onShopNote && (
+                <button className="ea-btn" type="button" onClick={onShopNote} disabled={running}>
+                  Catatan toko
+                </button>
+              )}
             </div>
+            {taskNote && <p className="ea-note" style={{ padding: "0 14px" }}>{taskNote}</p>}
             <div className="ea-list">
               {ordered.slice(0, 40).map((item) => {
                 const commission = commissions[item.itemId];

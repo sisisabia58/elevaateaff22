@@ -4,6 +4,8 @@ export type Settings = {
   defaultRatePct: number;
   tone: Tone;
   showScout: boolean;
+  geminiApiKey: string;
+  geminiModel: string;
 };
 
 export type Market = {
@@ -25,6 +27,8 @@ export type ScoutItem = {
   shopName: string | null;
   isAd: boolean;
   url: string;
+  stock?: number | null;
+  images?: string[];
 };
 
 export type LiveCommission = {
@@ -49,6 +53,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultRatePct: 8,
   tone: "santai",
   showScout: true,
+  geminiApiKey: "",
+  geminiModel: "gemini-2.5-flash",
 };
 
 export const SOURCE = "elevate-affiliate";

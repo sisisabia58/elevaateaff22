@@ -6,8 +6,10 @@ import { marketFromHost } from "../shared/money";
 import { loadSettings } from "../shared/settings";
 import { classifyLocation } from "../shared/shopee";
 import type { LiveCommission, PageKind, ScoutItem, Settings } from "../shared/types";
+import { callFeatureProxy, pingFeature } from "../shared/server";
 import { copyText } from "../ui/copy";
 import { PopupView } from "../ui/PopupView";
+import { RankingList } from "../ui/RankingList";
 
 type TabState = {
   kind: PageKind;
@@ -24,6 +26,7 @@ function PopupApp() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [tab, setTab] = useState<TabState>(EMPTY);
   const [note, setNote] = useState<string | null>(null);
+  const [ranking, setRanking] = useState<unknown>(null);
 
   useEffect(() => {
     void loadSettings().then(setSettings);
@@ -66,6 +69,34 @@ function PopupApp() {
       commission={commission}
       note={note}
       onOpenOptions={() => chrome.runtime.sendMessage({ type: "EA_OPEN_OPTIONS" })}
+      onOpenDashboard={() => chrome.runtime.sendMessage({ type: "EA_OPEN_DASHBOARD" })}
+      onRank={
+        tab.kind === "product"
+          ? () => {
+              chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                const id = tabs[0]?.id;
+                if (!id) return;
+                setNote("Membaca ulasan…");
+                void pingFeature("variant_ranking");
+                chrome.tabs.sendMessage(id, { type: "EA_FETCH_REVIEWS" }, (response) => {
+                  const payload = response as { ok?: boolean; reviews?: unknown; error?: string } | undefined;
+                  if (chrome.runtime.lastError || !payload?.ok) {
+                    setNote(payload?.error || "Ulasan tidak masuk. Buka kartu di halaman produk.");
+                    return;
+                  }
+                  void callFeatureProxy("variant_ranking", { reviews: payload.reviews }).then((result) => {
+                    if (!result.ok) setNote(result.error);
+                    else {
+                      setRanking(result.data);
+                      setNote(null);
+                    }
+                  });
+                });
+              });
+            }
+          : undefined
+      }
+      ranking={ranking ? <RankingList data={ranking} /> : null}
       onCopyCaption={() => {
         if (!tab.item) return;
         const caption = buildCaptions(tab.item, market, settings.tone)[0];

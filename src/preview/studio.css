@@ -58,6 +58,7 @@ button, input { font: inherit; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-top: 16px; }
 .fake-card { border: 1px solid #eee6da; border-radius: 14px; padding: 12px; background: #fff; }
 .swatch { height: 92px; border-radius: 10px; background: #e7f6f0; margin-bottom: 8px; }
+.ea-share { width: min(280px, 100%); border-radius: 16px; display: block; margin-top: 12px; border: 1px solid #e6dfd2; }
 .buy {
   margin-top: 16px;
   background: #ee4d2d;

@@ -10,6 +10,8 @@ export function normalizeSettings(value: unknown): Settings {
     defaultRatePct: Math.min(60, Math.max(0.5, Math.round(rate * 10) / 10)),
     tone,
     showScout: typeof raw.showScout === "boolean" ? raw.showScout : DEFAULT_SETTINGS.showScout,
+    geminiApiKey: typeof raw.geminiApiKey === "string" ? raw.geminiApiKey : "",
+    geminiModel: typeof raw.geminiModel === "string" && raw.geminiModel.trim() ? raw.geminiModel.trim() : DEFAULT_SETTINGS.geminiModel,
   };
 }
 

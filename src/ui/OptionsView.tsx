@@ -26,10 +26,18 @@ export function OptionsView({
   settings,
   savedLabel,
   onChange,
+  email = null,
+  authNote = null,
+  onSignIn,
+  onSignOut,
 }: {
   settings: Settings;
   savedLabel: string | null;
   onChange: (settings: Settings) => void;
+  email?: string | null;
+  authNote?: string | null;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
 }) {
   const preview = buildCaptions(SAMPLE, marketFromHost("shopee.co.id"), settings.tone)[0];
   return (
@@ -40,8 +48,27 @@ export function OptionsView({
           <div className="ea-mark">E</div>
           <h1>Pengaturan Elevate Affiliate</h1>
           <p className="lede">
-            Komisi asli dibaca dari sesi Affiliate Shopee kalau kamu sedang login. Angka di bawah dipakai saat sesi itu belum kebaca.
+            Alat di halaman Shopee tetap jalan tanpa login. Gemini, peringkat varian, cadangan HPP, dan simpan kontak kreator memakai login Google tim.
           </p>
+          <div className="ea-field">
+            <label>Akun tim</label>
+            {email ? (
+              <>
+                <p>Masuk sebagai {email}. Semua fitur server terbuka untuk akun ini.</p>
+                <button className="ea-btn" type="button" onClick={onSignOut}>
+                  Keluar
+                </button>
+              </>
+            ) : (
+              <>
+                <p>Belum masuk. Tidak ada paket, harga, atau halaman bayar di extension ini.</p>
+                <button className="ea-btn primary" type="button" onClick={onSignIn}>
+                  Masuk dengan Google
+                </button>
+              </>
+            )}
+            {authNote && <p>{authNote}</p>}
+          </div>
           <div className="ea-field">
             <label htmlFor="ea-rate">Komisi default (%)</label>
             <input
@@ -88,6 +115,27 @@ export function OptionsView({
                 <p>Kartu di halaman produk tetap muncul.</p>
               </span>
             </label>
+          </div>
+          <div className="ea-field">
+            <label htmlFor="ea-gemini">API key Gemini</label>
+            <input
+              id="ea-gemini"
+              type="password"
+              autoComplete="off"
+              value={settings.geminiApiKey}
+              placeholder="Dipakai lewat ai-proxy setelah login"
+              onChange={(event) => onChange({ ...settings, geminiApiKey: event.target.value })}
+            />
+            <p>Key tersimpan di browser ini. Caption tiga nada tetap ada kalau key kosong atau server menolak.</p>
+          </div>
+          <div className="ea-field">
+            <label htmlFor="ea-model">Model Gemini</label>
+            <input
+              id="ea-model"
+              type="text"
+              value={settings.geminiModel}
+              onChange={(event) => onChange({ ...settings, geminiModel: event.target.value })}
+            />
           </div>
           <div className="ea-field">
             <label>Pratinjau caption</label>

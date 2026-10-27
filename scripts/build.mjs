@@ -9,9 +9,9 @@ const dist = resolve(root, "dist");
 const manifest = {
   manifest_version: 3,
   name: "Elevate Affiliate",
-  version: "0.1.0",
+  version: "0.2.0",
   description:
-    "Komisi, link affiliate, dan caption untuk Shopee — langsung di halaman produk, pencarian, dan toko.",
+    "Komisi, Seller Center, dan laba untuk tim internal — tanpa halaman langganan.",
   action: {
     default_title: "Elevate Affiliate",
     default_popup: "popup.html",
@@ -23,12 +23,15 @@ const manifest = {
   },
   background: { service_worker: "background.js" },
   options_ui: { page: "options.html", open_in_tab: true },
-  permissions: ["storage", "tabs"],
+  permissions: ["storage", "tabs", "identity", "alarms"],
   host_permissions: [
     "https://shopee.co.id/*",
     "https://shopee.com.my/*",
+    "https://seller.shopee.co.id/*",
     "https://affiliate.shopee.co.id/*",
     "https://affiliate.shopee.com.my/*",
+    "https://*.susercontent.com/*",
+    "https://daajjdzuaxlfdasymwpx.supabase.co/*",
   ],
   icons: {
     16: "icons/icon16.png",
@@ -47,6 +50,17 @@ const manifest = {
       run_at: "document_start",
       all_frames: true,
       world: "MAIN",
+    },
+    {
+      matches: ["https://seller.shopee.co.id/*"],
+      js: ["seller-inject.js"],
+      run_at: "document_start",
+      world: "MAIN",
+    },
+    {
+      matches: ["https://seller.shopee.co.id/*"],
+      js: ["seller.js"],
+      run_at: "document_idle",
     },
   ],
   web_accessible_resources: [
@@ -83,6 +97,9 @@ await build({
     background: "src/background.ts",
     popup: "src/popup/main.tsx",
     options: "src/options/main.tsx",
+    dashboard: "src/dashboard/main.tsx",
+    seller: "src/seller/main.tsx",
+    "seller-inject": "src/seller/inject.ts",
   },
   bundle: true,
   format: "iife",
@@ -97,5 +114,6 @@ await build({
 await writeFile(resolve(dist, "manifest.json"), JSON.stringify(manifest, null, 2));
 await writeFile(resolve(dist, "popup.html"), page("popup.js"));
 await writeFile(resolve(dist, "options.html"), page("options.js"));
+await writeFile(resolve(dist, "dashboard.html"), page("dashboard.js"));
 await cp(resolve(root, "public/icons"), resolve(dist, "icons"), { recursive: true });
 console.log("built", dist);

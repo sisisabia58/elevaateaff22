@@ -1,28 +1,41 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { buildCaptions } from "../shared/captions";
 import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
-import { estimateCommission, marketFromHost } from "../shared/money";
-import type { CommissionView, LiveCommission, Settings } from "../shared/types";
+import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
+import { EMPTY_ROAS } from "../shared/roas";
+import { priceHistogram, shopSummary } from "../shared/research";
+import { downloadDataUrl, drawShareCard } from "../shared/share";
+import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
 import { OptionsView } from "../ui/OptionsView";
 import { PopupView } from "../ui/PopupView";
 import { ProductCard } from "../ui/ProductCard";
+import { ProfitBoard } from "../ui/ProfitBoard";
+import { RoasCard } from "../ui/RoasCard";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { FEATURED, FIXTURES } from "./fixtures";
 
-type Scene = "search" | "product" | "popup" | "settings";
+type Scene = "search" | "product" | "popup" | "settings" | "iklan" | "profit";
 
 const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "search", label: "Pencarian" },
   { id: "product", label: "Produk" },
   { id: "popup", label: "Popup" },
   { id: "settings", label: "Pengaturan" },
+  { id: "iklan", label: "Iklan" },
+  { id: "profit", label: "Laba" },
 ];
 
 export function Studio() {
   const [scene, setScene] = useState<Scene>("search");
-  const [settings, setSettings] = useState<Settings>({ defaultRatePct: 8, tone: "santai", showScout: true });
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [adsOnly, setAdsOnly] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [taskNote, setTaskNote] = useState<string | undefined>(undefined);
+  const [shareUrl, setShareUrl] = useState("");
+  const [roas, setRoas] = useState(EMPTY_ROAS);
+  const [signedIn, setSignedIn] = useState(false);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [sort, setSort] = useState<ScoutSort>("commission");
   const [empty, setEmpty] = useState(false);
@@ -71,6 +84,20 @@ export function Studio() {
   }
 
   const featuredCommission = commissions[FEATURED.itemId];
+  const summary = shopSummary(items);
+  const histogram = priceHistogram(items);
+
+  useEffect(() => {
+    if (scene !== "product" || hideDetail) return;
+    const href = drawShareCard({
+      name: FEATURED.name,
+      price: formatMoney(FEATURED.price, market),
+      commission: featuredCommission ? formatMoney(featuredCommission.amount, market) : "—",
+      rate: featuredCommission ? formatRate(featuredCommission.ratePct) : "",
+      shop: FEATURED.shopName,
+    });
+    setShareUrl(href);
+  }, [scene, hideDetail, featuredCommission, market]);
 
   return (
     <>
@@ -99,14 +126,46 @@ export function Studio() {
                   ? "shopee.co.id/Tumbler-Stainless-i.88001.2000"
                   : scene === "popup"
                     ? "popup extension"
-                    : "shopee.co.id/search?keyword=tumbler"}
+                    : scene === "iklan"
+                      ? "seller.shopee.co.id/portal/marketing/pas"
+                      : scene === "profit"
+                        ? "dashboard laba"
+                        : "shopee.co.id/dapurkecil"}
               </div>
             </div>
           )}
           {scene === "search" && (
             <div className="page">
               <h2>tumbler</h2>
-              <p className="muted">Hasil pencarian demo. Scout membaca kartu yang sudah tampil.</p>
+              <p className="muted">Hasil toko demo. Scout menempel di atas daftar.</p>
+              {settings.showScout && scoutOpen && (
+                <ScoutPanel
+                  title={`Toko · Dapur Kecil · ${items.length} produk`}
+                  items={items}
+                  market={market}
+                  commissions={commissions}
+                  sort={sort}
+                  onSort={setSort}
+                  onOpen={() => setScene("product")}
+                  onCheckLive={() => void simulateLive()}
+                  onExport={() => downloadText("elevate-affiliate-demo.csv", scoutCsv(adsOnly ? items.filter((item) => item.isAd) : items, commissions))}
+                  checkLabel={checkLabel}
+                  onClose={() => setScoutOpen(false)}
+                  placement="dock"
+                  summary={summary}
+                  histogram={histogram}
+                  adsOnly={adsOnly}
+                  onAdsOnly={setAdsOnly}
+                  running={running}
+                  onStop={() => {
+                    setRunning(false);
+                    setTaskNote("Dihentikan.");
+                  }}
+                  onDeepen={() => setTaskNote("Shopee menghentikan pendalaman.")}
+                  onPaginate={() => setTaskNote("Shopee menghentikan pindah halaman.")}
+                  taskNote={taskNote}
+                />
+              )}
               <div className="grid">
                 {FIXTURES.map((item) => (
                   <article key={item.itemId} className="fake-card">
@@ -116,22 +175,6 @@ export function Studio() {
                   </article>
                 ))}
               </div>
-              {settings.showScout && scoutOpen && (
-                <ScoutPanel
-                  title={`Pencarian · tumbler · ${items.length} produk`}
-                  items={items}
-                  market={market}
-                  commissions={commissions}
-                  sort={sort}
-                  onSort={setSort}
-                  onOpen={() => setScene("product")}
-                  onCheckLive={() => void simulateLive()}
-                  onExport={() => downloadText("elevate-affiliate-demo.csv", scoutCsv(items, commissions))}
-                  checkLabel={checkLabel}
-                  onClose={() => setScoutOpen(false)}
-                  embedded
-                />
-              )}
             </div>
           )}
           {scene === "product" && (
@@ -142,6 +185,7 @@ export function Studio() {
               <button className="buy" type="button">
                 Beli Sekarang
               </button>
+              {shareUrl && !hideDetail && <img className="ea-share" alt="Kartu bagikan 4:5" src={shareUrl} />}
               {cardOpen && (
                 <ProductCard
                   item={hideDetail ? null : FEATURED}
@@ -163,6 +207,8 @@ export function Studio() {
                   onCopyCaption={(text) => void copyText(text)}
                   onClose={() => setCardOpen(false)}
                   embedded
+                  onShare={() => shareUrl && downloadDataUrl("elevate-share.png", shareUrl)}
+                  onZip={() => setLinkDetail("Belum ada gambar. Refresh halaman produk.")}
                 />
               )}
             </div>
@@ -178,6 +224,7 @@ export function Studio() {
                 commission={featuredCommission}
                 note={popupNote}
                 onOpenOptions={() => setScene("settings")}
+                onOpenDashboard={() => setScene("profit")}
                 onCopyCaption={() => {
                   const caption = buildCaptions(FEATURED, market, settings.tone)[0];
                   void copyText(caption.text).then((ok) => setPopupNote(ok ? "Caption disalin." : "Clipboard ditolak browser."));
@@ -185,7 +232,27 @@ export function Studio() {
               />
             </div>
           )}
-          {scene === "settings" && <OptionsView settings={settings} savedLabel={savedLabel} onChange={updateSettings} />}
+          {scene === "settings" && (
+            <OptionsView
+              settings={settings}
+              savedLabel={savedLabel}
+              onChange={updateSettings}
+              email={signedIn ? "tim@elevate.test" : null}
+              authNote={signedIn ? null : "Login Google hanya jalan di dalam extension."}
+              onSignIn={() => setSignedIn(true)}
+              onSignOut={() => setSignedIn(false)}
+            />
+          )}
+          {scene === "iklan" && (
+            <div className="page">
+              <h2>Iklan Shopee</h2>
+              <p className="muted">Kalkulator tetap jalan kalau tabel iklan tidak ketemu.</p>
+              <RoasCard value={roas} onChange={setRoas} spend="20000" onSpend={() => undefined} tableNote="Tabel iklan belum ketemu di halaman ini." />
+            </div>
+          )}
+          {scene === "profit" && (
+            <ProfitBoard snapshot={null} hppCount={0} note="Dashboard kosong. Muat contoh ada di tab extension." />
+          )}
         </section>
         <aside className="side-note">
           <h3>Yang bisa dicoba</h3>
@@ -193,7 +260,9 @@ export function Studio() {
             <li>Ubah komisi default, estimasi di pencarian ikut berubah.</li>
             <li>Cek komisi asli mengisi 4 produk pertama, seolah sesi Affiliate sudah login.</li>
             <li>Salin caption dari kartu produk atau popup.</li>
-            <li>CSV mengunduh daftar yang sedang tampil.</li>
+            <li>Scout menempel di atas hasil, dengan ringkasan toko dan sebaran harga.</li>
+            <li>Kartu produk menggambar gambar 4:5.</li>
+            <li>Iklan menunjukkan zona ROAS. Laba mulai dari keadaan kosong.</li>
           </ul>
           <div className="studio-tools">
             <button type="button" onClick={() => { setEmpty(false); setScoutOpen(true); setScene("search"); }}>

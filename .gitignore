@@ -4,3 +4,4 @@ dist
 *.log
 sena-extension
 uploads
+src/shared/supabase-config.ts

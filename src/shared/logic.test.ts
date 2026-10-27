@@ -130,6 +130,8 @@ describe("captions and settings", () => {
       defaultRatePct: 60,
       tone: "santai",
       showScout: false,
+      geminiApiKey: "",
+      geminiModel: "gemini-2.5-flash",
     });
   });
 });

@@ -67,9 +67,25 @@ function rememberList(rawUrl: string, payload: unknown) {
   publishScout();
 }
 
+function maybeAccount(rawUrl: string, json: unknown) {
+  if (!/mini\/login|account\/basic|get_account_info/i.test(rawUrl)) return;
+  const root = json !== null && typeof json === "object" ? (json as Record<string, unknown>) : null;
+  const data = root && typeof root.data === "object" && root.data ? (root.data as Record<string, unknown>) : root;
+  const id = data?.user_id ?? data?.userid ?? data?.userId;
+  if (id == null) return;
+  post({
+    type: "ACCOUNT",
+    shopeeUserId: String(id),
+    username: typeof data?.username === "string" ? data.username : null,
+    shopId: data?.shopid != null ? String(data.shopid) : data?.shop_id != null ? String(data.shop_id) : null,
+    isSeller: location.hostname.startsWith("seller."),
+  });
+}
+
 async function readJson(response: Response, rawUrl: string) {
   try {
     const json = await response.clone().json();
+    maybeAccount(rawUrl, json);
     if (isProductDetailUrl(rawUrl)) {
       const list = extractItemList(json);
       if (list?.[0]) rememberProduct(list[0]);
@@ -85,7 +101,7 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
   const rawUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
   const promise = originalFetch(input, init);
-  if (listKindFromUrl(rawUrl) || isProductDetailUrl(rawUrl)) {
+    if (listKindFromUrl(rawUrl) || isProductDetailUrl(rawUrl) || /mini\/login|account\/basic|get_account_info/i.test(rawUrl)) {
     promise.then((response) => void readJson(response, rawUrl)).catch(() => undefined);
   }
   return promise;
@@ -100,9 +116,10 @@ XMLHttpRequest.prototype.open = function (method: string, url: string | URL, asy
 XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
   this.addEventListener("load", () => {
     const rawUrl = (this as XMLHttpRequest & { __eaUrl?: string }).__eaUrl || "";
-    if (!listKindFromUrl(rawUrl) && !isProductDetailUrl(rawUrl)) return;
+    if (!listKindFromUrl(rawUrl) && !isProductDetailUrl(rawUrl) && !/mini\/login|account\/basic|get_account_info/i.test(rawUrl)) return;
     try {
       const json = JSON.parse(this.responseText) as unknown;
+      maybeAccount(rawUrl, json);
       rememberList(rawUrl, json);
       if (isProductDetailUrl(rawUrl)) {
         const list = extractItemList(json);
@@ -139,6 +156,61 @@ async function fetchItem(shopId: string, itemId: string) {
   }
 }
 
+function stockFrom(json: unknown): { stock: number | null; images: string[] } {
+  const list = extractItemList(json);
+  const parsed = parseScoutEntry(list?.[0] ?? json, location.origin);
+  return { stock: parsed?.stock ?? null, images: parsed?.images ?? [] };
+}
+
+async function fetchStock(shopId: string, itemId: string) {
+  try {
+    const response = await originalFetch(
+      `${location.origin}/api/v4/item/get?itemid=${encodeURIComponent(itemId)}&shopid=${encodeURIComponent(shopId)}`,
+      { credentials: "include", headers: { Accept: "application/json" } },
+    );
+    if (response.status === 403 || response.status === 429) {
+      post({ type: "STOCK", itemId, stopped: true });
+      return;
+    }
+    const json = (await response.json()) as unknown;
+    const detail = stockFrom(json);
+    post({ type: "STOCK", itemId, stock: detail.stock, images: detail.images, stopped: false });
+  } catch {
+    post({ type: "STOCK", itemId, stopped: true });
+  }
+}
+
+async function fetchReviews(shopId: string, itemId: string) {
+  const reviews: unknown[] = [];
+  try {
+    let offset = 0;
+    while (reviews.length < 200) {
+      const response = await originalFetch(
+        `${location.origin}/api/v2/item/get_ratings?shopid=${encodeURIComponent(shopId)}&itemid=${encodeURIComponent(itemId)}&limit=20&offset=${offset}&type=0&filter=0`,
+        { credentials: "include", headers: { Accept: "application/json" } },
+      );
+      if (!response.ok) {
+        post({ type: "REVIEWS", itemId, reviews, error: `Shopee menghentikan ulasan (${response.status}).` });
+        return;
+      }
+      const json = (await response.json()) as { error?: number; data?: { ratings?: unknown[] } };
+      if (json.error) {
+        post({ type: "REVIEWS", itemId, reviews, error: "Shopee menghentikan ulasan." });
+        return;
+      }
+      const page = json.data?.ratings ?? [];
+      if (!page.length) break;
+      reviews.push(...page);
+      offset += 20;
+      if (page.length < 20) break;
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+    }
+    post({ type: "REVIEWS", itemId, reviews });
+  } catch {
+    post({ type: "REVIEWS", itemId, reviews, error: "Ulasan tidak terbaca." });
+  }
+}
+
 window.addEventListener("message", (event) => {
   if (event.source !== window) return;
   const data = event.data as { source?: string; channel?: string; type?: string; shopId?: string; itemId?: string };
@@ -148,4 +220,6 @@ window.addEventListener("message", (event) => {
     if (scoutPage) publishScout();
   }
   if (data.type === "FETCH_ITEM" && data.shopId && data.itemId) void fetchItem(data.shopId, data.itemId);
+  if (data.type === "FETCH_STOCK" && data.shopId && data.itemId) void fetchStock(data.shopId, data.itemId);
+  if (data.type === "FETCH_REVIEWS" && data.shopId && data.itemId) void fetchReviews(data.shopId, data.itemId);
 });

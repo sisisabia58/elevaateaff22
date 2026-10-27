@@ -107,6 +107,10 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
     shopName: text(shopData?.shop_name) ?? text(item.shop_name) ?? text(row.shop_name),
     isAd,
     url: productUrl(origin, String(shopId), String(itemId)),
+    stock: typeof item.stock === "number" ? item.stock : typeof row.stock === "number" ? row.stock : null,
+    images: [displayed?.image, ...(Array.isArray(displayed?.images) ? displayed.images : []), item.image, ...(Array.isArray(item.images) ? item.images : [])]
+      .map((value) => imageUrl(value))
+      .filter((value): value is string => Boolean(value)),
   };
 }
 

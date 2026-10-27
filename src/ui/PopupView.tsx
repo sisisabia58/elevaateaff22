@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, PageKind, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
@@ -11,7 +12,10 @@ export function PopupView({
   commission,
   note,
   onOpenOptions,
+  onOpenDashboard,
   onCopyCaption,
+  onRank,
+  ranking,
 }: {
   kind: PageKind;
   label: string;
@@ -21,7 +25,10 @@ export function PopupView({
   commission: CommissionView | null;
   note: string | null;
   onOpenOptions: () => void;
+  onOpenDashboard: () => void;
   onCopyCaption: () => void;
+  onRank?: () => void;
+  ranking?: ReactNode;
 }) {
   return (
     <div className="ea-root">
@@ -57,7 +64,13 @@ export function PopupView({
                 <button className="ea-btn primary" type="button" onClick={onCopyCaption}>
                   Salin caption
                 </button>
+                {onRank && (
+                  <button className="ea-btn" type="button" onClick={onRank}>
+                    Peringkat varian
+                  </button>
+                )}
               </div>
+              {ranking}
             </>
           )}
           {kind === "product" && !item && (
@@ -76,8 +89,11 @@ export function PopupView({
           )}
           {note && <div className="ea-status">{note}</div>}
           <div className="ea-actions">
-            <button className="ea-btn full" type="button" onClick={onOpenOptions}>
-              Pengaturan komisi & caption
+            <button className="ea-btn" type="button" onClick={onOpenDashboard}>
+              Laba
+            </button>
+            <button className="ea-btn" type="button" onClick={onOpenOptions}>
+              Pengaturan
             </button>
           </div>
         </div>

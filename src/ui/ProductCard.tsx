@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Caption } from "../shared/captions";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
@@ -16,6 +16,13 @@ export function ProductCard({
   onCopyCaption,
   onClose,
   embedded = false,
+  onShare,
+  onZip,
+  onSummarize,
+  onThread,
+  onRank,
+  panel,
+  ranking,
 }: {
   item: ScoutItem | null;
   market: Market;
@@ -28,6 +35,13 @@ export function ProductCard({
   onCopyCaption: (text: string) => void;
   onClose: () => void;
   embedded?: boolean;
+  onShare?: () => void;
+  onZip?: () => void;
+  onSummarize?: () => void;
+  onThread?: () => void;
+  onRank?: () => void;
+  panel?: { title: string; body: string } | null;
+  ranking?: ReactNode;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -106,6 +120,44 @@ export function ProductCard({
                   Salin caption
                 </button>
               </div>
+              {(onShare || onZip || onSummarize || onThread || onRank) && (
+                <div className="ea-actions">
+                  {onShare && (
+                    <button className="ea-btn" type="button" onClick={onShare}>
+                      Kartu 4:5
+                    </button>
+                  )}
+                  {onZip && (
+                    <button className="ea-btn" type="button" onClick={onZip}>
+                      Zip gambar
+                    </button>
+                  )}
+                  {onSummarize && (
+                    <button className="ea-btn" type="button" onClick={onSummarize}>
+                      Ringkas
+                    </button>
+                  )}
+                  {onThread && (
+                    <button className="ea-btn" type="button" onClick={onThread}>
+                      5 angle
+                    </button>
+                  )}
+                  {onRank && (
+                    <button className="ea-btn" type="button" onClick={onRank}>
+                      Peringkat varian
+                    </button>
+                  )}
+                </div>
+              )}
+              {panel && (
+                <div>
+                  <div className="ea-kicker" style={{ marginTop: 10 }}>
+                    {panel.title}
+                  </div>
+                  <div className="ea-panel-text">{panel.body}</div>
+                </div>
+              )}
+              {ranking}
               <div className="ea-caption">
                 <button className="ea-btn" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
                   {open ? "Tutup 3 angle" : "Lihat 3 angle caption"}

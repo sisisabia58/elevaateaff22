@@ -32,6 +32,22 @@ export const elevateCss = `
 .ea-card.embedded, .ea-scout.embedded { position: absolute; }
 .ea-card.embedded { max-height: calc(100% - 32px); }
 .ea-scout.embedded { top: 64px; max-height: calc(100% - 80px); }
+.ea-scout.dock {
+  position: relative;
+  top: auto;
+  right: auto;
+  width: 100%;
+  max-height: 460px;
+  margin: 0 0 16px;
+  box-shadow: none;
+}
+.ea-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; margin: 8px 0 4px; }
+.ea-bar { flex: 1; background: #e5f4ee; border-radius: 6px 6px 0 0; min-height: 4px; }
+.ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; }
+.ea-summary { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 14px 8px; }
+.ea-summary div { background: #f7f3ec; border-radius: 10px; padding: 8px 10px; min-width: 90px; }
+.ea-summary strong { display: block; font-size: 14px; }
+.ea-summary span { color: #6d655b; font-size: 11px; }
 .ea-popup { width: 360px; min-height: 280px; background: #f7f3ec; }
 .ea-options { max-width: 720px; }
 
@@ -100,7 +116,27 @@ export const elevateCss = `
 .ea-facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ea-chip { background: #fff; border: 1px solid #e6dfd2; border-radius: 999px; padding: 2px 8px; font-size: 11px; color: #3f3a33; }
 
-.ea-actions { display: flex; gap: 8px; margin-top: 12px; }
+.ea-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.ea-panel-text { white-space: pre-wrap; background: #f7f3ec; border-radius: 12px; padding: 10px; max-height: 180px; overflow: auto; font-size: 13px; margin-top: 8px; }
+.ea-rank { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-top: 8px; font-size: 13px; }
+.ea-rank i { grid-column: 1 / -1; display: block; height: 6px; background: #0f6e56; border-radius: 99px; }
+.ea-seller { width: 400px; top: 16px; bottom: auto; }
+.ea-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.ea-zone { border: 1px solid #e6dfd2; border-radius: 12px; padding: 8px; background: #fff; }
+.ea-zone.on { border-color: #0f6e56; background: #e5f4ee; }
+.ea-zone b { display: block; font-size: 16px; }
+.ea-dash { background: #f7f3ec; min-height: 100%; padding: 28px 16px 48px; }
+.ea-dash h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
+.ea-dash .lede { color: #6d655b; margin: 0 0 12px; }
+.ea-dash-wrap { max-width: 960px; margin: 0 auto; }
+.ea-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+.ea-metric, .ea-drop, .ea-sheet { background: #fffdf9; border: 1px solid #e6dfd2; border-radius: 16px; padding: 14px; }
+.ea-metric strong { display: block; font-size: 22px; letter-spacing: -0.03em; margin-top: 4px; }
+.ea-drop { border-style: dashed; margin-bottom: 12px; }
+.ea-sheet { margin-top: 12px; }
+.ea-sheet table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ea-sheet td { padding: 6px 4px; border-top: 1px solid #eee6da; }
+.ea-share { width: min(280px, 100%); border-radius: 16px; border: 1px solid #e6dfd2; margin-top: 12px; }
 .ea-btn {
   border-radius: 10px;
   border: 1px solid #e6dfd2;
@@ -179,13 +215,15 @@ export const elevateCss = `
 .ea-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .ea-field label { font-weight: 700; font-size: 13px; }
 .ea-field p { margin: 0; color: #6d655b; font-size: 12px; }
-.ea-field input[type="number"] {
-  width: 120px;
+.ea-field input[type="number"], .ea-field input[type="text"], .ea-field input[type="password"] {
+  width: 100%;
+  max-width: 420px;
   border: 1px solid #e6dfd2;
   border-radius: 10px;
   padding: 8px 10px;
   background: #fff;
 }
+.ea-field input[type="number"] { width: 120px; }
 .ea-tones { display: flex; gap: 8px; }
 .ea-check { display: flex; gap: 8px; align-items: flex-start; }
 .ea-preview {
@@ -197,7 +235,8 @@ export const elevateCss = `
 .ea-saved { color: #0f6e56; font-size: 12px; font-weight: 700; min-height: 18px; }
 
 @media (max-width: 720px) {
-  .ea-card, .ea-scout { left: 12px; right: 12px; width: auto; }
-  .ea-scout { top: 12px; }
+  .ea-card, .ea-scout:not(.dock) { left: 12px; right: 12px; width: auto; }
+  .ea-scout:not(.dock) { top: 12px; }
+  .ea-metrics { grid-template-columns: 1fr 1fr; }
 }
 `;
