@@ -28,7 +28,7 @@ export const elevateCss = `
   box-shadow: 0 16px 50px rgba(28, 25, 21, 0.16);
 }
 .ea-card { width: 336px; right: 16px; bottom: 16px; max-height: calc(100vh - 32px); overflow: auto; }
-.ea-scout { width: 380px; right: 16px; top: 72px; max-height: min(640px, calc(100vh - 96px)); display: flex; flex-direction: column; }
+.ea-scout { width: 380px; right: 16px; top: 72px; max-height: min(640px, calc(100vh - 96px)); display: flex; flex-direction: column; overflow: auto; }
 .ea-card.embedded, .ea-scout.embedded { position: absolute; }
 .ea-card.embedded { max-height: calc(100% - 32px); }
 .ea-scout.embedded { top: 64px; max-height: calc(100% - 80px); }
