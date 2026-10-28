@@ -438,6 +438,7 @@ export function Studio() {
                     return next;
                   })
                 }
+                onReplacePresets={setPresets}
                 spend="20000"
                 onSpend={() => undefined}
                 tableNote={null}

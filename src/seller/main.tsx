@@ -256,6 +256,7 @@ function SellerApp() {
                   delete next[name];
                   updatePresets(next);
                 }}
+                onReplacePresets={updatePresets}
                 spend={spend}
                 onSpend={setSpend}
                 tableNote={tableNote}

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { downloadText } from "../shared/csv";
 import { formatMoney, marketFromHost } from "../shared/money";
-import type { RoasPreset } from "../shared/presets";
+import { importConfirmMessage, mergePresets, parsePresetBackup, presetBackup, presetBackupFilename, type RoasPreset } from "../shared/presets";
 import { hitungMultiTierROAS, hitungTargetROAS, realProfit, zoneFor, type RoasInput } from "../shared/roas";
 import { elevateCss } from "./css";
 
@@ -15,6 +16,7 @@ export function RoasCard({
   presets = {},
   onSavePreset,
   onDeletePreset,
+  onReplacePresets,
 }: {
   value: RoasInput;
   onChange: (next: RoasInput) => void;
@@ -24,6 +26,7 @@ export function RoasCard({
   presets?: Record<string, RoasPreset>;
   onSavePreset?: (name: string, preset: RoasPreset) => void;
   onDeletePreset?: (name: string) => void;
+  onReplacePresets?: (presets: Record<string, RoasPreset>) => void;
 }) {
   const hasil = hitungTargetROAS(value);
   const tiers = hitungMultiTierROAS(value);
@@ -42,7 +45,10 @@ export function RoasCard({
   const set = (patch: Partial<RoasInput>) => onChange({ ...value, ...patch });
   const [name, setName] = useState("");
   const [productId, setProductId] = useState("");
+  const [query, setQuery] = useState("");
   const [presetNote, setPresetNote] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const visiblePresets = Object.entries(presets).filter(([key]) => key.toLowerCase().includes(query.trim().toLowerCase()));
 
   return (
     <div className="ea-root">
@@ -129,10 +135,65 @@ export function RoasCard({
             >
               Simpan preset
             </button>
+            <div className="ea-actions">
+              <button
+                className="ea-btn"
+                type="button"
+                onClick={() => {
+                  if (!Object.keys(presets).length) {
+                    setPresetNote("Belum ada preset buat di-export.");
+                    return;
+                  }
+                  downloadText(presetBackupFilename(), JSON.stringify(presetBackup(presets), null, 2), "application/json");
+                  setPresetNote(`File ${presetBackupFilename()} diunduh.`);
+                }}
+              >
+                Export preset
+              </button>
+              {onReplacePresets && (
+                <button className="ea-btn" type="button" onClick={() => fileRef.current?.click()}>
+                  Import preset
+                </button>
+              )}
+            </div>
+            {onReplacePresets && (
+              <input
+                ref={fileRef}
+                aria-label="Impor preset"
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  void file.text().then((text) => {
+                    const parsed = parsePresetBackup(text);
+                    if (!parsed.ok) {
+                      setPresetNote(parsed.error);
+                      return;
+                    }
+                    const { merged, collisions } = mergePresets(presets, parsed.presets);
+                    const total = Object.keys(parsed.presets).length;
+                    if (!window.confirm(importConfirmMessage(total, collisions))) return;
+                    onReplacePresets(merged);
+                    setPresetNote(`${total} preset diimpor.${collisions.length ? ` ${collisions.length} nama ditimpa.` : ""}`);
+                  });
+                }}
+              />
+            )}
             {presetNote && <p className="ea-note">{presetNote}</p>}
             {Object.keys(presets).length > 0 && (
               <div className="ea-preset-list">
-                {Object.entries(presets).map(([key, preset]) => (
+                <div className="ea-field">
+                  <label htmlFor="ea-preset-search">Cari nama produk</label>
+                  <input id="ea-preset-search" type="text" value={query} placeholder="Cari nama produk..." onChange={(event) => setQuery(event.target.value)} />
+                </div>
+                {visiblePresets.length === 0 && <p className="ea-note">Gak ada preset yang cocok.</p>}
+                {visiblePresets.map(([key, preset]) => {
+                  const gross = hitungTargetROAS(preset);
+                  const presetTiers = hitungMultiTierROAS(preset);
+                  return (
                   <div key={key} className="ea-item">
                     <button
                       type="button"
@@ -144,8 +205,12 @@ export function RoasCard({
                     >
                       <b>{key}</b>
                       <span>
-                        HPP {formatMoney(preset.hpp, market)}
+                        Harga {formatMoney(preset.hargaJual, market)} · HPP {formatMoney(preset.hpp, market)}
                         {preset.productId ? ` · ID ${preset.productId}` : ""}
+                      </span>
+                      <span>
+                        Profit kotor {gross.valid ? formatMoney(gross.marginKontribusi, market) : "—"}
+                        {presetTiers.map((tier) => ` · ${tier.label} ${tier.targetROAS ? `${tier.targetROAS.toFixed(2)}x` : "—"}`).join("")}
                       </span>
                     </button>
                     {onDeletePreset && (
@@ -154,7 +219,8 @@ export function RoasCard({
                       </button>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </>
