@@ -77,7 +77,8 @@ export function MarketAiDialog({
   const [fontSize, setFontSize] = useState(14);
   useEffect(() => {
     try {
-      const stored = Number(localStorage.getItem(FONT_KEY));
+      const raw = localStorage.getItem(FONT_KEY);
+      const stored = raw == null ? NaN : Number(raw);
       if (Number.isFinite(stored)) setFontSize(clampFont(stored));
     } catch {
       /* private mode */
