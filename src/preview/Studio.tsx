@@ -271,7 +271,7 @@ export function Studio() {
             <li>Ubah komisi default, estimasi di pencarian ikut berubah.</li>
             <li>Cek komisi asli mengisi 4 produk pertama, seolah sesi Affiliate sudah login.</li>
             <li>Salin caption dari kartu produk atau popup.</li>
-            <li>Analisa menempel di pencarian: penjualan 30 hari, trend, kata kunci iklan, dan umur toko yang belum diambil.</li>
+            <li>Analisa menempel di pencarian: penjualan 30 hari, trend, sebaran harga, umur listing, dan umur toko.</li>
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan menunjukkan zona ROAS. Laba mulai dari keadaan kosong.</li>
           </ul>

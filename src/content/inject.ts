@@ -209,6 +209,45 @@ async function fetchShop(shopId: string) {
   }
 }
 
+let soldOutStop = false;
+
+async function fetchSoldOut(shopId: string) {
+  soldOutStop = false;
+  const seen = new Set<string>();
+  try {
+    for (let page = 0; page < 20; page += 1) {
+      if (soldOutStop) {
+        post({ type: "SOLDOUT", itemId: shopId, items: [], stopped: true, done: true });
+        return;
+      }
+      const offset = page * 30;
+      const response = await originalFetch(
+        `${location.origin}/api/v4/shop/search_items?filter_sold_out=1&limit=30&offset=${offset}&order=desc&shopid=${encodeURIComponent(shopId)}&sort_by=pop&use_case=4`,
+        { credentials: "include", headers: { Accept: "application/json" } },
+      );
+      if (response.status === 403 || response.status === 429) {
+        post({ type: "SOLDOUT", itemId: shopId, items: [], stopped: true, done: true });
+        return;
+      }
+      const json = (await response.json()) as unknown;
+      const list = extractItemList(json) ?? [];
+      const pageItems: NonNullable<ReturnType<typeof parseScoutEntry>>[] = [];
+      for (const entry of list) {
+        const parsed = parseScoutEntry(entry, location.origin, shopId);
+        if (!parsed || seen.has(parsed.itemId)) continue;
+        seen.add(parsed.itemId);
+        pageItems.push({ ...parsed, soldOut: true });
+      }
+      if (pageItems.length) post({ type: "SOLDOUT", itemId: shopId, items: pageItems, stopped: false, done: false });
+      if (list.length < 30) break;
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    }
+    post({ type: "SOLDOUT", itemId: shopId, items: [], stopped: soldOutStop, done: true });
+  } catch {
+    post({ type: "SOLDOUT", itemId: shopId, items: [], stopped: true, done: true });
+  }
+}
+
 async function fetchReviews(shopId: string, itemId: string) {
   const reviews: unknown[] = [];
   try {
@@ -252,4 +291,6 @@ window.addEventListener("message", (event) => {
   if (data.type === "FETCH_STOCK" && data.shopId && data.itemId) void fetchStock(data.shopId, data.itemId);
   if (data.type === "FETCH_SHOP" && data.shopId) void fetchShop(data.shopId);
   if (data.type === "FETCH_REVIEWS" && data.shopId && data.itemId) void fetchReviews(data.shopId, data.itemId);
+  if (data.type === "FETCH_SOLDOUT" && data.shopId) void fetchSoldOut(data.shopId);
+  if (data.type === "STOP_SOLDOUT") soldOutStop = true;
 });

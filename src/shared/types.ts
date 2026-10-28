@@ -16,6 +16,11 @@ export type Market = {
 
 export type PageKind = "product" | "search" | "shop" | "other";
 
+export type ProductModel = {
+  name: string;
+  images: string[];
+};
+
 export type ScoutItem = {
   itemId: string;
   shopId: string;
@@ -39,6 +44,7 @@ export type ScoutItem = {
   adKeyword?: string | null;
   adMode?: string | null;
   shopCtime?: number | null;
+  models?: ProductModel[];
 };
 
 export type LiveCommission = {

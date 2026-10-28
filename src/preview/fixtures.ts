@@ -32,6 +32,14 @@ export const FIXTURES: ScoutItem[] = rows.map(
     soldOut,
     adKeyword,
     adMode: isAd ? "2" : null,
+    shopCtime: now - [40, 120, 200, 500, 900, 2000][index] * day,
+    models:
+      index === 0
+        ? [
+            { name: "Hitam", images: ["https://down-id.img.susercontent.com/hitam"] },
+            { name: "Putih", images: ["https://down-id.img.susercontent.com/putih"] },
+          ]
+        : undefined,
   }),
 );
 

@@ -57,6 +57,8 @@ export const elevateCss = `
 .ea-bar { flex: 1; background: transparent; border: 0; padding: 0; min-height: 8px; display: flex; align-items: flex-end; }
 .ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; }
 .ea-bar[aria-pressed="true"] span { background: #1c1915; }
+.ea-bar-labels { display: flex; gap: 6px; }
+.ea-bar-labels span { flex: 1; font-size: 10px; line-height: 1.25; color: #6d655b; text-align: center; word-break: break-word; }
 .ea-scout.analisa { max-height: min(78vh, 860px); }
 .ea-analisa-scroll { overflow: auto; max-height: 360px; padding: 0 8px 10px; }
 .ea-analisa table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }

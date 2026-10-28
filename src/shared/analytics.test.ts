@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemMetrics, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
+import { itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
 import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
@@ -163,6 +163,56 @@ describe("product analytics", () => {
       soldOut: false,
       ctime: 1_700_000_000,
     });
+  });
+
+  it("bins price, listing age, and shop age on the same rows", () => {
+    const rows = [
+      product({ itemId: "p1", price: 10_000, ctime: NOW / 1000 - 10 * 86400, shopId: "s1" }),
+      product({ itemId: "p2", price: 50_000, ctime: NOW / 1000 - 100 * 86400, shopId: "s2" }),
+      product({ itemId: "p3", price: 20_000, ctime: null }),
+    ];
+    const price = metricHistogram(rows, NOW, 5, "price");
+    expect(price).toHaveLength(5);
+    expect(price.reduce((sum, bar) => sum + bar.count, 0)).toBe(3);
+    expect(itemBucketIndex(rows[0], price, "price", NOW)).toBe(0);
+    const age = metricHistogram(rows, NOW, 5, "age");
+    expect(age.reduce((sum, bar) => sum + bar.count, 0)).toBe(2);
+    expect(age[0]?.label.endsWith("hr")).toBe(true);
+    expect(itemBucketIndex(rows[0], age, "age", NOW)).not.toBe(itemBucketIndex(rows[1], age, "age", NOW));
+    expect(itemBucketIndex(rows[2], age, "age", NOW)).toBeNull();
+    expect(metricHistogram(rows, NOW, 5, "shopAge", {})).toEqual([]);
+    const shops = { s1: NOW / 1000 - 40 * 86400, s2: NOW / 1000 - 800 * 86400 };
+    const shopAge = metricHistogram(rows, NOW, 5, "shopAge", shops);
+    expect(shopAge.map((bar) => bar.label)).toEqual(["<3 bln", "2–5 thn"]);
+    expect(itemBucketIndex(rows[1], shopAge, "shopAge", NOW, shops)).toBe(1);
+  });
+
+  it("reads variant galleries from tier options, then from model rows", () => {
+    const tiers = parseScoutEntry(
+      {
+        itemid: 4,
+        shopid: 8,
+        name: "Kaos",
+        price: 2_000_000_000,
+        tier_variations: [{ name: "Warna", options: ["Hitam", "Putih"], images: ["hitam", "putih"] }],
+      },
+      "https://shopee.co.id",
+    );
+    expect(tiers?.models).toEqual([
+      { name: "Hitam", images: ["https://down-id.img.susercontent.com/hitam"] },
+      { name: "Putih", images: ["https://down-id.img.susercontent.com/putih"] },
+    ]);
+    const models = parseScoutEntry(
+      {
+        itemid: 5,
+        shopid: 8,
+        name: "Kaos",
+        price: 2_000_000_000,
+        models: [{ name: "Merah", image: "merah" }, { model_name: "Biru" }],
+      },
+      "https://shopee.co.id",
+    );
+    expect(models?.models).toEqual([{ name: "Merah", images: ["https://down-id.img.susercontent.com/merah"] }]);
   });
 
   it("counts variant mentions inside 30 and 90 days", () => {

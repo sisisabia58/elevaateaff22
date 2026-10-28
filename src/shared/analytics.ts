@@ -92,27 +92,84 @@ export function pageAnalytics(items: ScoutItem[], nowMs = Date.now()): PageAnaly
 
 export type MetricBucket = { label: string; min: number; max: number; count: number; sold30d: number };
 
-export function metricHistogram(items: ScoutItem[], nowMs = Date.now(), bucketCount = 5): MetricBucket[] {
-  if (!items.length) return [];
-  const prices = items.map((item) => item.price);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
+export type HistogramDimension = "price" | "age" | "shopAge";
+
+const SHOP_AGE_LABELS = ["<3 bln", "3–6 bln", "6 bln–1 thn", "1–2 thn", "2–5 thn", ">5 thn"];
+
+function numericHistogram(
+  rows: Array<{ value: number; sold30d: number }>,
+  bucketCount: number,
+  format: (min: number, max: number) => string,
+): MetricBucket[] {
+  if (!rows.length) return [];
+  const min = Math.min(...rows.map((row) => row.value));
+  const max = Math.max(...rows.map((row) => row.value));
   const width = max === min ? 1 : (max - min) / bucketCount;
   const buckets: MetricBucket[] = Array.from({ length: bucketCount }, (_, index) => {
     const start = min + index * width;
     const end = index === bucketCount - 1 ? max : start + width;
     return { label: "", min: start, max: end, count: 0, sold30d: 0 };
   });
-  const metrics = metricsFor(items, nowMs);
-  for (const item of items) {
-    const index = Math.min(bucketCount - 1, Math.floor((item.price - min) / width));
+  for (const row of rows) {
+    const index = Math.min(bucketCount - 1, Math.floor((row.value - min) / width));
     buckets[index].count += 1;
-    buckets[index].sold30d += metrics.get(item.itemId)?.sold30d ?? 0;
+    buckets[index].sold30d += row.sold30d;
   }
-  return buckets.map((bucket) => ({
-    ...bucket,
-    label: `${Math.round(bucket.min).toLocaleString("id-ID")}–${Math.round(bucket.max).toLocaleString("id-ID")}`,
-  }));
+  return buckets.map((bucket) => ({ ...bucket, label: format(bucket.min, bucket.max) }));
+}
+
+export function metricHistogram(
+  items: ScoutItem[],
+  nowMs = Date.now(),
+  bucketCount = 5,
+  dimension: HistogramDimension = "price",
+  shopCtimes: Record<string, number> = {},
+): MetricBucket[] {
+  if (!items.length) return [];
+  const metrics = metricsFor(items, nowMs);
+  if (dimension === "shopAge") {
+    const buckets = new Map(SHOP_AGE_LABELS.map((label) => [label, { label, min: 0, max: 0, count: 0, sold30d: 0 }]));
+    for (const item of items) {
+      const label = shopAgeBucket(item.shopCtime ?? shopCtimes[item.shopId], nowMs);
+      const bucket = label ? buckets.get(label) : undefined;
+      if (!bucket) continue;
+      bucket.count += 1;
+      bucket.sold30d += metrics.get(item.itemId)?.sold30d ?? 0;
+    }
+    return SHOP_AGE_LABELS.map((label) => buckets.get(label)!).filter((bucket) => bucket.count > 0);
+  }
+  const rows = items.flatMap((item) => {
+    const value = dimension === "price" ? item.price : metrics.get(item.itemId)?.ageDays;
+    if (value == null) return [];
+    return [{ value, sold30d: metrics.get(item.itemId)?.sold30d ?? 0 }];
+  });
+  const format =
+    dimension === "age"
+      ? (min: number, max: number) => `${Math.round(min).toLocaleString("id-ID")}–${Math.round(max).toLocaleString("id-ID")} hr`
+      : (min: number, max: number) => `${Math.round(min).toLocaleString("id-ID")}–${Math.round(max).toLocaleString("id-ID")}`;
+  return numericHistogram(rows, bucketCount, format);
+}
+
+export function itemBucketIndex(
+  item: ScoutItem,
+  bars: MetricBucket[],
+  dimension: HistogramDimension,
+  nowMs = Date.now(),
+  shopCtimes: Record<string, number> = {},
+): number | null {
+  if (!bars.length) return null;
+  if (dimension === "shopAge") {
+    const label = shopAgeBucket(item.shopCtime ?? shopCtimes[item.shopId], nowMs);
+    if (!label) return null;
+    const index = bars.findIndex((bar) => bar.label === label);
+    return index >= 0 ? index : null;
+  }
+  const value = dimension === "price" ? item.price : itemMetrics(item, nowMs).ageDays;
+  if (value == null) return null;
+  const min = bars[0].min;
+  const max = bars[bars.length - 1].max;
+  const width = max === min ? 1 : (max - min) / bars.length;
+  return Math.min(bars.length - 1, Math.floor((value - min) / width));
 }
 
 export function shopRelation(hasFollow: boolean, hasChat: boolean): "Toko sendiri" | "Toko kompetitor" {

@@ -67,6 +67,28 @@ function finiteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function modelGallery(item: Record<string, unknown>, row: Record<string, unknown>): { name: string; images: string[] }[] {
+  const tiers = Array.isArray(item.tier_variations) ? item.tier_variations : Array.isArray(row.tier_variations) ? row.tier_variations : [];
+  const first = asRecord(tiers[0]);
+  if (first && Array.isArray(first.options)) {
+    const images = Array.isArray(first.images) ? first.images : [];
+    const groups = first.options.map((option, index) => {
+      const image = imageUrl(images[index]);
+      return { name: text(option) ?? `Varian ${index + 1}`, images: image ? [image] : [] };
+    });
+    if (groups.some((group) => group.images.length)) return groups;
+  }
+  const models = Array.isArray(item.models) ? item.models : Array.isArray(row.models) ? row.models : [];
+  return models.flatMap((entry, index) => {
+    const model = asRecord(entry);
+    if (!model) return [];
+    const ext = asRecord(model.extinfo);
+    const image = imageUrl(model.image) ?? imageUrl(ext?.image);
+    if (!image) return [];
+    return [{ name: text(model.name) ?? text(model.model_name) ?? `Varian ${index + 1}`, images: [image] }];
+  });
+}
+
 export function parseApproxSoldText(value: string | null | undefined): number | null {
   if (!value) return null;
   const token = value.trim().toUpperCase();
@@ -240,6 +262,7 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
     images: [displayed?.image, ...(Array.isArray(displayed?.images) ? displayed.images : []), item.image, ...(Array.isArray(item.images) ? item.images : [])]
       .map((value) => imageUrl(value))
       .filter((value): value is string => Boolean(value)),
+    models: modelGallery(item, row),
   };
 }
 

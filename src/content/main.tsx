@@ -34,6 +34,7 @@ type PageMessage = {
   reviews?: unknown[];
   error?: string;
   ctime?: number | null;
+  done?: boolean;
   shopeeUserId?: string;
   username?: string | null;
   shopId?: string | null;
@@ -122,6 +123,7 @@ function Overlay() {
   const hrefRef = useRef(href);
   const stopRef = useRef(false);
   const shopCtimesRef = useRef(shopCtimes);
+  const soldOutRef = useRef(new Map<string, ScoutItem>());
   const waiters = useRef(new Set<(data: PageMessage) => void>());
   const reported = useRef(new Set<string>());
   liveRef.current = live;
@@ -173,7 +175,13 @@ function Overlay() {
       }
       if (data.type === "PRODUCT_MISSING") setProductPhase("error");
       if (data.type === "SCOUT" && data.items) {
-        setItems(data.items);
+        const incoming = data.items;
+        const seen = new Set(incoming.map((item) => item.itemId));
+        const extras = [...soldOutRef.current.values()].filter((item) => !seen.has(item.itemId));
+        setItems([
+          ...incoming.map((item) => (soldOutRef.current.has(item.itemId) ? { ...item, soldOut: true } : item)),
+          ...extras,
+        ]);
         if (data.label) setScoutLabel(data.label);
       }
       if (data.type === "ACCOUNT" && data.shopeeUserId && !reported.current.has(data.shopeeUserId)) {
@@ -193,6 +201,7 @@ function Overlay() {
         setCardClosed(false);
         setScoutClosed(false);
         setProduct(null);
+        soldOutRef.current.clear();
         setItems([]);
         setProductPhase(classifyLocation(location.href) === "product" ? "loading" : "ready");
         setDetail(undefined);
@@ -362,6 +371,7 @@ function Overlay() {
         rating: detail.rating ?? item.rating,
         soldOut: detail.soldOut ?? item.soldOut,
         soldText: detail.soldText ?? item.soldText,
+        models: detail.models?.length ? detail.models : item.models,
       };
     };
     setItems((current) => current.map(patch));
@@ -655,21 +665,91 @@ function Overlay() {
     setTaskNote(stopRef.current ? "Dihentikan." : hits > 0 ? `Affiliate 7 hari · ${hits} produk` : "Sesi affiliate belum kebaca");
   }
 
+  function mergeSoldOut(incoming: ScoutItem[]) {
+    for (const item of incoming) soldOutRef.current.set(item.itemId, { ...item, soldOut: true });
+    setItems((current) => {
+      const byId = new Map(current.map((item) => [item.itemId, item]));
+      for (const item of incoming) {
+        const previous = byId.get(item.itemId);
+        byId.set(item.itemId, previous ? { ...item, ...previous, soldOut: true } : { ...item, soldOut: true });
+      }
+      return [...byId.values()];
+    });
+  }
+
+  function waitSoldOut(shopId: string, ms: number) {
+    return new Promise<PageMessage | null>((resolve) => {
+      const timer = window.setTimeout(() => {
+        waiters.current.delete(onData);
+        resolve(null);
+      }, ms);
+      const onData = (data: PageMessage) => {
+        if (data.type !== "SOLDOUT" || data.itemId !== shopId || !data.done) return;
+        window.clearTimeout(timer);
+        waiters.current.delete(onData);
+        resolve(data);
+      };
+      waiters.current.add(onData);
+    });
+  }
+
   async function loadSoldOut() {
     if (running) return;
     if (kind !== "shop") {
-      setTaskNote("Tab produk habis tidak ketemu.");
+      setTaskNote("Produk habis hanya ada di halaman toko.");
       return;
     }
-    const tab = findShortControl(/^(habis|sold out|stok habis)$/i);
-    if (!tab) {
-      setTaskNote("Tab produk habis tidak ketemu.");
+    const shopId = itemsRef.current[0]?.shopId;
+    if (!shopId) {
+      setTaskNote("Toko belum terbaca.");
       return;
     }
-    tab.click();
-    setTaskNote("Membuka tab produk habis.");
-    await delay(800);
-    await paginate();
+    stopRef.current = false;
+    soldOutRef.current.clear();
+    setRunning(true);
+    setTaskNote("Membaca produk habis…");
+    const onPage = (data: PageMessage) => {
+      if (data.type !== "SOLDOUT" || data.itemId !== shopId || !data.items?.length) return;
+      mergeSoldOut(data.items);
+      setTaskNote(`Produk habis · ${soldOutRef.current.size}`);
+    };
+    waiters.current.add(onPage);
+    const watch = window.setInterval(() => {
+      if (stopRef.current) askPage({ type: "STOP_SOLDOUT" });
+    }, 250);
+    askPage({ type: "FETCH_SOLDOUT", shopId });
+    const done = await waitSoldOut(shopId, 90000);
+    window.clearInterval(watch);
+    waiters.current.delete(onPage);
+    const received = soldOutRef.current.size;
+    if (stopRef.current) {
+      setRunning(false);
+      setTaskNote(received ? `Dihentikan · ${received} produk habis` : "Dihentikan.");
+      return;
+    }
+    if (!received && done?.stopped) {
+      const tab = findShortControl(/^(habis|sold out|stok habis)$/i);
+      if (!tab) {
+        setRunning(false);
+        setTaskNote("Tab produk habis tidak ketemu.");
+        return;
+      }
+      tab.click();
+      setTaskNote("Shopee menghentikan produk habis. Membuka tab.");
+      await delay(800);
+      await paginate();
+      return;
+    }
+    setRunning(false);
+    setTaskNote(received ? `Produk habis · ${received}` : done ? "Tidak ada produk habis." : "Shopee menghentikan produk habis.");
+  }
+
+  function saveProductImages(current: ScoutItem) {
+    const urls = [...(current.images ?? []), current.image].filter((url): url is string => Boolean(url));
+    const groups = (current.models ?? []).map((model) => ({ name: model.name, urls: model.images }));
+    void zipImages(urls, `elevate-${current.itemId}.zip`, groups)
+      .then((count) => setDetail(`${count} gambar disimpan.`))
+      .catch((error: unknown) => setDetail(error instanceof Error ? error.message : "Zip gagal."));
   }
 
   function researchPayload(list: ScoutItem[]) {
@@ -777,6 +857,7 @@ function Overlay() {
       running={running}
       onStop={() => {
         stopRef.current = true;
+        askPage({ type: "STOP_SOLDOUT" });
       }}
       onDeepen={() => void deepen()}
       onPaginate={() => void paginate()}
@@ -821,10 +902,7 @@ function Overlay() {
           }}
           onZip={() => {
             if (!product) return;
-            const urls = [...(product.images ?? []), product.image].filter((url): url is string => Boolean(url));
-            void zipImages(urls, `elevate-${product.itemId}.zip`)
-              .then((count) => setDetail(`${count} gambar disimpan.`))
-              .catch((error: unknown) => setDetail(error instanceof Error ? error.message : "Zip gagal."));
+            saveProductImages(product);
           }}
           onSummarize={() => {
             if (!product) return;
@@ -876,10 +954,7 @@ function Overlay() {
               }}
               onImages={() => {
                 if (!product) return;
-                const urls = [...(product.images ?? []), product.image].filter((url): url is string => Boolean(url));
-                void zipImages(urls, `elevate-${product.itemId}.zip`)
-                  .then((count) => setDetail(`${count} gambar disimpan.`))
-                  .catch((error: unknown) => setDetail(error instanceof Error ? error.message : "Zip gagal."));
+                saveProductImages(product);
               }}
             />,
             actionMount,

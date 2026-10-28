@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type ItemMetrics } from "../shared/analytics";
+import { itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type HistogramDimension, type ItemMetrics } from "../shared/analytics";
 import { analyticsCsv, downloadText } from "../shared/csv";
 import { formatMoney } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
@@ -63,6 +63,7 @@ export function AnalisaTable({
   const [sample, setSample] = useState<SampleFilter>("all");
   const [adsOnly, setAdsOnly] = useState(false);
   const [barMetric, setBarMetric] = useState<"count" | "sold30d">("count");
+  const [dimension, setDimension] = useState<HistogramDimension>("price");
   const [bucket, setBucket] = useState<number | null>(null);
   const now = Date.now();
   const metrics = useMemo(() => metricsFor(items, now), [items, now]);
@@ -79,18 +80,13 @@ export function AnalisaTable({
     if (sample === "tidak" && free !== false) return false;
     return true;
   });
-  const bars = metricHistogram(searched, now);
+  const bars = metricHistogram(searched, now, 5, dimension, shopCtimes);
   const maxBar = Math.max(1, ...bars.map((bar) => (barMetric === "sold30d" ? bar.sold30d : bar.count)));
   const ranged =
     bucket === null || !bars.length
       ? searched
-      : searched.filter((item) => {
-          const min = bars[0].min;
-          const max = bars[bars.length - 1].max;
-          const width = max === min ? 1 : (max - min) / bars.length;
-          const index = Math.min(bars.length - 1, Math.floor((item.price - min) / width));
-          return index === bucket;
-        });
+      : searched.filter((item) => itemBucketIndex(item, bars, dimension, now, shopCtimes) === bucket);
+  const dimensionLabel = dimension === "age" ? "Sebaran umur listing" : dimension === "shopAge" ? "Sebaran umur toko" : "Sebaran harga";
   const ordered = [...ranged].sort((a, b) => {
     const left =
       sort === "price" ? a.price : sort === "sold" ? metrics.get(a.itemId)?.soldPerMonth ?? a.sold : metricNumber(metrics.get(a.itemId), sort, commissions[a.itemId]?.amount ?? 0);
@@ -152,10 +148,40 @@ export function AnalisaTable({
           </div>
         )}
       </div>
-      {bars.length > 0 && (
+      {searched.length > 0 && (
         <div className="ea-body">
-          <div className="ea-kicker">Sebaran harga</div>
+          <div className="ea-kicker">{dimensionLabel}</div>
           <div className="ea-sort">
+            <button
+              type="button"
+              aria-pressed={dimension === "price"}
+              onClick={() => {
+                setDimension("price");
+                setBucket(null);
+              }}
+            >
+              Harga
+            </button>
+            <button
+              type="button"
+              aria-pressed={dimension === "age"}
+              onClick={() => {
+                setDimension("age");
+                setBucket(null);
+              }}
+            >
+              Umur listing
+            </button>
+            <button
+              type="button"
+              aria-pressed={dimension === "shopAge"}
+              onClick={() => {
+                setDimension("shopAge");
+                setBucket(null);
+              }}
+            >
+              Umur toko
+            </button>
             <button type="button" aria-pressed={barMetric === "count"} onClick={() => setBarMetric("count")}>
               Jumlah
             </button>
@@ -163,20 +189,33 @@ export function AnalisaTable({
               Penjualan 30 hari
             </button>
           </div>
-          <div className="ea-bars">
-            {bars.map((bar, index) => (
-              <button
-                key={bar.label}
-                type="button"
-                className="ea-bar"
-                title={bar.label}
-                aria-pressed={bucket === index}
-                onClick={() => setBucket((current) => (current === index ? null : index))}
-              >
-                <span style={{ height: `${Math.max(8, ((barMetric === "sold30d" ? bar.sold30d : bar.count) / maxBar) * 72)}px` }} />
-              </button>
-            ))}
-          </div>
+          {bars.length > 0 ? (
+            <>
+              <div className="ea-bars">
+                {bars.map((bar, index) => (
+                  <button
+                    key={`${dimension}-${index}`}
+                    type="button"
+                    className="ea-bar"
+                    title={`${bar.label} · ${bar.count} produk`}
+                    aria-pressed={bucket === index}
+                    onClick={() => setBucket((current) => (current === index ? null : index))}
+                  >
+                    <span style={{ height: `${Math.max(8, ((barMetric === "sold30d" ? bar.sold30d : bar.count) / maxBar) * 72)}px` }} />
+                  </button>
+                ))}
+              </div>
+              <div className="ea-bar-labels">
+                {bars.map((bar, index) => (
+                  <span key={`${dimension}-label-${index}`}>{bar.label}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="ea-note">
+              {dimension === "shopAge" ? "Umur toko belum diambil." : "Usia listing belum terbaca."}
+            </p>
+          )}
         </div>
       )}
       <div className="ea-scout-tools">
