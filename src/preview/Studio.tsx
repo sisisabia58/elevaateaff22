@@ -273,7 +273,8 @@ export function Studio() {
                   onShopAge={() => setTaskNote("Umur toko demo sudah terisi.")}
                   onAffiliate={() => setTaskNote("Cek affiliate butuh sesi Affiliate Shopee.")}
                   onSoldOut={() => setTaskNote("Produk habis dibaca dari katalog toko.")}
-                  onMarketAi={(scope) => {
+                  onMarketAi={() => {
+                    const scope = { items, filterLabel: null };
                     setAiScope(scope);
                     openPreviewAi(scope);
                   }}
