@@ -5,7 +5,8 @@ import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { rememberImport } from "../shared/imports";
 import { downloadText } from "../shared/csv";
-import { dateBasisWarning, hppLines, listPeriods, listStores, mergeStoreRows, parseCsv, parseExportGrid, parseHppCsv, peekStoreName, rowsForStores, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { readHppFile } from "../shared/hpp-import";
+import { dateBasisWarning, hppImportFailure, hppImportMessage, hppLines, listPeriods, listStores, mergeStoreRows, parseCsv, parseExportGrid, peekStoreName, rowsForStores, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
 
 const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat,Waktu Pesanan Dikonfirmasi,Waktu Pesanan Selesai
@@ -162,15 +163,16 @@ function DashboardApp() {
                 Impor HPP
                 <input
                   type="file"
-                  accept=".csv"
+                  accept=".csv,.xlsx"
                   hidden
                   onChange={(event) => {
                     const file = event.target.files?.[0];
+                    event.target.value = "";
                     if (!file) return;
-                    void file.text().then((text) => {
-                      const hpp = { ...books.hpp, ...parseHppCsv(text) };
-                      void persist({ ...books, hpp }, "HPP diperbarui.");
-                    });
+                    void readHppFile(file).then(
+                      (result) => persist({ ...books, hpp: { ...books.hpp, ...result.map } }, hppImportMessage(result)),
+                      (error) => setNote(hppImportFailure(error)),
+                    );
                   }}
                 />
               </label>
@@ -206,6 +208,11 @@ function DashboardApp() {
           const hpp = { ...books.hpp, [sku]: value };
           for (const other of siblings) hpp[other] = value;
           void persist({ ...books, hpp }, null);
+        }}
+        onHppFile={async (file) => {
+          const result = await readHppFile(file);
+          await persist({ ...books, hpp: { ...books.hpp, ...result.map } }, null);
+          return hppImportMessage(result);
         }}
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
 import { importStatus, type ImportEntry } from "../shared/imports";
-import { adChartLabel, adGapNote, adSignal, clipAdName, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { adChartLabel, adGapNote, adSignal, clipAdName, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -40,6 +40,7 @@ export function ProfitBoard({
   onRange,
   lines = [],
   onHpp,
+  onHppFile,
   basis = "created",
   onBasis,
   basisWarning = null,
@@ -60,6 +61,7 @@ export function ProfitBoard({
   onRange?: (range: ProfitWindow | null) => void;
   lines?: HppLine[];
   onHpp?: (sku: string, value: number, siblings?: string[]) => void;
+  onHppFile?: (file: File) => Promise<string>;
   basis?: DateBasis;
   onBasis?: (basis: DateBasis) => void;
   basisWarning?: string | null;
@@ -74,6 +76,7 @@ export function ProfitBoard({
   const [shortfallOpen, setShortfallOpen] = useState(false);
   const [hideClaimed, setHideClaimed] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy No. Pesanan belum diklaim");
+  const [hppNote, setHppNote] = useState<string | null>(null);
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
@@ -307,6 +310,14 @@ export function ProfitBoard({
             onOnlyMissing={setHppMissing}
             collapsed={hppCollapsed}
             onCollapsed={setHppCollapsed}
+            note={hppNote}
+            onHppFile={onHppFile ? async (file) => {
+              try {
+                setHppNote(await onHppFile(file));
+              } catch (error) {
+                setHppNote(hppImportFailure(error));
+              }
+            } : undefined}
             onHpp={onHpp}
           />
           <p className="ea-note">{hppCount ? `${hppCount} HPP tersimpan.` : "Belum ada HPP."} {note}</p>
@@ -477,6 +488,8 @@ function HppMaster({
   collapsed,
   onCollapsed,
   onHpp,
+  onHppFile,
+  note,
 }: {
   lines: HppLine[];
   query: string;
@@ -486,13 +499,39 @@ function HppMaster({
   collapsed: Record<string, boolean>;
   onCollapsed: (value: Record<string, boolean>) => void;
   onHpp?: (sku: string, value: number, siblings?: string[]) => void;
+  onHppFile?: (file: File) => Promise<void>;
+  note?: string | null;
 }) {
   const view = hppMaster(lines, { query, onlyMissing, collapsed });
   const products = Object.keys(view.groups);
   return (
     <div className="ea-sheet ea-hpp" id="ea-hpp">
       <div className="ea-kicker">Master SKU & HPP</div>
-      <p className="ea-note">Isi HPP + packaging per unit sekali di sini — dipakai buat hitung profit di semua periode. Qty di tabel ini total dari SEMUA riwayat pesanan yang pernah diimport, bukan cuma periode yang lagi difilter di Dashboard Profit.</p>
+      <div className="ea-hpp-import">
+        <p className="ea-note">Isi HPP + packaging per unit sekali di sini — dipakai buat hitung profit di semua periode. Qty di tabel ini total dari SEMUA riwayat pesanan yang pernah diimport, bukan cuma periode yang lagi difilter di Dashboard Profit.</p>
+        <div>
+          <input
+            id="file-hpp-import-master"
+            type="file"
+            accept=".xlsx,.csv"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) void onHppFile?.(file);
+            }}
+          />
+          <button
+            type="button"
+            id="btn-hpp-import-trigger-master"
+            onClick={() => document.getElementById("file-hpp-import-master")?.click()}
+          >
+            Import HPP dari File
+          </button>
+          <span>CSV/XLSX: kolom SKU + HPP</span>
+        </div>
+      </div>
+      {note && <p className="ea-note" id="hpp-import-status">{note}</p>}
       <div className="ea-hpp-tools">
         <input
           id="hpp-master-search"

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -151,7 +151,7 @@ describe("shopee exports", () => {
     expect(result.profit).toBe(75000 - 30000 - 10000);
     expect(result.shortfalls).toEqual([]);
     expect(result.roas).toBe(4);
-    expect(parseHppCsv("sku,varian,hpp\nSKU1,Merah,15000")).toEqual({ "SKU1|Merah": 15000 });
+    expect(parseHppCsv("sku,varian,hpp\nSKU1,Merah,15000").map).toEqual({ SKU1: 15000 });
   });
 
   it("rebuilds net income from the signed Shopee finance columns", () => {
@@ -410,5 +410,18 @@ describe("shopee exports", () => {
   it("parses a csv row with quotes", () => {
     const parsed = parseCsv('Nama,Harga\n"Tumbler, besar",89000\n');
     expect(parsed.rows[0][0]).toBe("Tumbler, besar");
+  });
+
+  it("imports HPP by SKU and skips a non-positive amount", () => {
+    const named = parseHppCsv("Kode Produk,Harga Pokok\nABC,15.000\nZZ,0\nYY,-5\n");
+    expect(named.map).toEqual({ ABC: 15000 });
+    expect(named.imported).toBe(1);
+    expect(hppImportMessage(named)).toBe('1 SKU berhasil diimport. Kolom SKU: "Kode Produk", kolom HPP: "Harga Pokok"');
+    const decimal = parseHppCsv("SKU Induk\tHPP per unit\nZZ\t6,40\n");
+    expect(decimal.map).toEqual({ ZZ: 6.4 });
+    const fallback = parseHppCsv("Nama,Modal\nX,1.500\n");
+    expect(fallback).toMatchObject({ map: { X: 1500 }, skuCol: "Nama", hppCol: "Modal" });
+    expect(() => parseHppCsv("sku,hpp\n")).toThrow("File kosong atau tidak ada data");
+    expect(() => parseHppCsv("   \n")).toThrow("File kosong atau tidak ada data");
   });
 });

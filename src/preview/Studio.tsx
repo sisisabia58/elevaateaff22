@@ -14,7 +14,8 @@ import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
 import type { ImportEntry } from "../shared/imports";
-import { dateBasisWarning, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { readHppFile } from "../shared/hpp-import";
+import { dateBasisWarning, hppImportMessage, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -638,6 +639,11 @@ export function Studio() {
                 for (const other of siblings) next[other] = value;
                 return next;
               })}
+              onHppFile={async (file) => {
+                const result = await readHppFile(file);
+                setProfitHpp((current) => ({ ...current, ...result.map }));
+                return hppImportMessage(result);
+              }}
             />
           )}
         </section>

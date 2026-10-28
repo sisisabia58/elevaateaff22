@@ -503,6 +503,12 @@ export const elevateCss = `
 .ea-mini { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 11px; margin-top: 3px; }
 .ea-mini i { display: block; height: 8px; border-radius: 4px; min-width: 2px; }
 .ea-mini b { font-variant-numeric: tabular-nums; }
+.ea-hpp-import { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ea-hpp-import .ea-note { flex: 1; min-width: 220px; margin: 0; }
+.ea-hpp-import > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ea-hpp-import button { border: 1px solid #86efac; background: #fff; color: #166534; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+.ea-hpp-import span { font-size: 10px; color: #6d655b; }
+#hpp-import-status { white-space: pre-line; }
 .ea-hpp-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
 .ea-hpp-tools input[type="text"], .ea-hpp-tools input:not([type]) { flex: 1; min-width: 160px; border: 1px solid #86efac; border-radius: 8px; padding: 7px 10px; background: #fff; }
 .ea-hpp-tools label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #6d655b; white-space: nowrap; }

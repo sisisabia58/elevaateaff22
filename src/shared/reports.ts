@@ -1027,28 +1027,59 @@ export function demoProfitSnapshot(operasional = 0): ProfitSnapshot {
   });
 }
 
-export function parseHppCsv(text: string): Record<string, number> {
-  const table = parseCsv(text);
-  if (!table.headers.length) return {};
-  const headers = table.headers.map((header) => header.toLowerCase());
-  let sku = headers.findIndex((header) => header.includes("sku"));
-  const variant = headers.findIndex((header) => header.includes("varian") || header.includes("variant"));
-  let hpp = headers.findIndex((header) => header.includes("hpp") || header.includes("modal"));
-  let dataRows = table.rows;
-  if (sku < 0 || hpp < 0) {
-    sku = 0;
-    hpp = variant === 1 ? 2 : 1;
-    dataRows = [table.headers, ...table.rows];
-  }
+export type HppImport = { map: Record<string, number>; skuCol: string; hppCol: string; imported: number };
+
+/** SENA parseNum for an HPP cell: dots are thousands separators unless a comma sets the decimal. */
+export function parseHppAmount(value: string | number | undefined | null): number {
+  if (value == null || value === "") return 0;
+  if (typeof value === "number") return value;
+  const text = String(value).trim().replace(/\s/g, "");
+  const parts = text.split(",");
+  if (parts.length === 2) return parseFloat(parts[0].replace(/\./g, "") + "." + parts[1]) || 0;
+  return parseFloat(text.replace(/\./g, "")) || 0;
+}
+
+/** SENA onHppFileImport column pick: SKU (or Kode Produk), then a column that starts with HPP or Harga Pokok. */
+export function importHppGrid(headers: string[], rows: string[][]): HppImport {
+  if (!headers.length || !rows.length) throw new Error("File kosong atau tidak ada data");
+  const clean = headers.map((header) => header.replace(/^\uFEFF/, "").trim());
+  const skuIdx = clean.findIndex((header) => /^sku$/i.test(header) || /sku.*(induk|kode|id|seller)/i.test(header) || /^(kode|kode.produk)$/i.test(header));
+  const hppIdx = clean.findIndex((header) => /^hpp/i.test(header) || /harga.pokok/i.test(header) || /^(hpp.*unit|unit.*hpp|hpp.per.unit)$/i.test(header));
+  const skuCol = skuIdx >= 0 ? skuIdx : 0;
+  const hppCol = hppIdx >= 0 ? hppIdx : 1;
   const map: Record<string, number> = {};
-  for (const row of dataRows) {
-    const keySku = (row[sku] || "").trim();
-    const keyVariant = variant >= 0 ? (row[variant] || "").trim() : "";
-    const amount = num(row[hpp]);
-    if (!keySku || !amount) continue;
-    map[keyVariant ? `${keySku}|${keyVariant}` : keySku] = amount;
+  let imported = 0;
+  for (const row of rows) {
+    const sku = String(row[skuCol] ?? "").trim();
+    const hpp = parseHppAmount(row[hppCol]);
+    if (!sku || hpp <= 0) continue;
+    map[sku] = hpp;
+    imported += 1;
   }
-  return map;
+  return { map, skuCol: clean[skuCol] ?? "", hppCol: clean[hppCol] ?? "", imported };
+}
+
+export function hppImportMessage(result: HppImport): string {
+  return `${result.imported} SKU berhasil diimport. Kolom SKU: "${result.skuCol}", kolom HPP: "${result.hppCol}"`;
+}
+
+export function hppImportFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return `Gagal import HPP: ${message}\n\nPastikan file memiliki kolom SKU dan HPP/unit.`;
+}
+
+export function parseHppCsv(text: string): HppImport {
+  const cleaned = text.replace(/^\uFEFF/, "");
+  const lines = cleaned.split(/\r?\n/).filter((line) => line.trim());
+  if (!lines.length) throw new Error("File kosong atau tidak ada data");
+  if (lines[0].includes("\t")) {
+    const split = (line: string) => line.split("\t").map((cell) => cell.trim().replace(/^"|"$/g, "").replace(/^\uFEFF/, ""));
+    const [header, ...rest] = lines;
+    return importHppGrid(split(header), rest.map(split));
+  }
+  const table = parseCsv(cleaned);
+  if (!table.rows.length) throw new Error("File kosong atau tidak ada data");
+  return importHppGrid(table.headers, table.rows);
 }
 
 export function hppFor(map: Record<string, number>, sku: string, variant = ""): number {
