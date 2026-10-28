@@ -3,15 +3,36 @@ import { adRoasLabel, computeProfitBersih, parseShopeeNumber, profitBadgeText, t
 const PROFIT = "ea-profit-badge";
 const ZONE = "ea-roas-badge";
 
-function columnIndex(table: HTMLTableElement, label: string): number | null {
-  const headers = [...table.querySelectorAll("thead th")];
-  const index = headers.findIndex((header) => (header.textContent || "").toLowerCase().includes(label.toLowerCase()));
-  return index >= 0 ? index : null;
+function headerText(table: HTMLTableElement): string[] {
+  return [...table.querySelectorAll("thead th")].map((header) => (header.textContent || "").replace(/\s+/g, " ").trim().toLowerCase());
+}
+
+function headerIndex(headers: string[], label: string, avoid: RegExp = /$^/): number | null {
+  const exact = headers.findIndex((header) => header === label && !avoid.test(header));
+  if (exact >= 0) return exact;
+  const loose = headers.findIndex((header) => header.includes(label) && !avoid.test(header));
+  return loose >= 0 ? loose : null;
 }
 
 function cellText(row: HTMLTableRowElement, index: number | null): string {
   if (index == null) return "";
-  return (row.cells[index]?.textContent || "").replace(/\s+/g, " ").trim();
+  const cell = row.cells[index];
+  if (!cell) return "";
+  const clone = cell.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(".ea-profit-badge,.ea-roas-badge,.ea-ad-aktual,.ea-cpc-aktual,.ea-acos-aktual").forEach((node) => node.remove());
+  return (clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function aktualBadge(cell: HTMLElement, className: string, text: string, title: string) {
+  let badge = cell.querySelector(`:scope > .${className}`) as HTMLElement | null;
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.className = className;
+    badge.style.cssText = "margin-top:4px;display:inline-block;padding:2px 8px;border-radius:4px;background:#ee4d2d;color:#fff;font-size:11px;font-weight:700;";
+    cell.appendChild(badge);
+  }
+  badge.textContent = text;
+  badge.title = title;
 }
 
 function place(cell: HTMLElement, className: string, text: string, title: string, tone: "good" | "bad" | "mid" | "setup") {
@@ -35,12 +56,16 @@ export function stampAdTable(root: ParentNode, preset: RoasInput | null): number
   let stamped = 0;
   for (const table of root.querySelectorAll("table")) {
     if (!(table instanceof HTMLTableElement)) continue;
-    const penjualan = columnIndex(table, "Penjualan");
-    const sold = columnIndex(table, "Produk Terjual");
+    const headers = headerText(table);
+    const penjualan = headerIndex(headers, "penjualan", /voucher/);
+    const sold = headerIndex(headers, "produk terjual");
     if (penjualan == null || sold == null) continue;
-    const orders = columnIndex(table, "Konversi");
-    const ads = columnIndex(table, "Biaya Iklan");
-    const roas = columnIndex(table, "ROAS");
+    const orders = headerIndex(headers, "konversi", /tingkat|biaya/);
+    const ads = headerIndex(headers, "biaya iklan", /persentase|acos|per konversi/);
+    const roas = headerIndex(headers, "roas");
+    const cpc = headerIndex(headers, "biaya per konversi");
+    const acos = headers.findIndex((header) => /acos|persentase biaya iklan/.test(header));
+    const ppn = 1 + ((preset?.ppnTopupPersen ?? 11) / 100);
     for (const row of table.querySelectorAll("tbody tr")) {
       if (!(row instanceof HTMLTableRowElement)) continue;
       const sales = parseShopeeNumber(cellText(row, penjualan));
@@ -74,6 +99,21 @@ export function stampAdTable(root: ParentNode, preset: RoasInput | null): number
           const tone = label === "Bagus" ? "good" : label === "Rugi" ? "bad" : label === "Cukup" ? "mid" : "setup";
           place(roasCell, ZONE, label, `ROAS tampilan ${shown}. Zona memakai ROAS setelah PPN topup.`, tone);
         }
+      }
+      const adCell = ads == null ? null : row.cells[ads];
+      const adSpend = parseShopeeNumber(cellText(row, ads));
+      if (adCell && adSpend != null && adSpend > 0) {
+        aktualBadge(adCell, "ea-ad-aktual", `Ad Rp${Math.round(adSpend * ppn).toLocaleString("id-ID")}`, "Biaya Iklan Aktual = Biaya Iklan × 1,11 (termasuk PPN 11% topup saldo iklan)");
+      }
+      const cpcCell = cpc == null ? null : row.cells[cpc];
+      const cpcValue = parseShopeeNumber(cellText(row, cpc));
+      if (cpcCell && cpcValue != null && cpcValue > 0) {
+        aktualBadge(cpcCell, "ea-cpc-aktual", `BpK Rp${Math.round(cpcValue * ppn).toLocaleString("id-ID")}`, "Biaya per Konversi Aktual = Biaya per Konversi × 1,11");
+      }
+      const acosCell = acos < 0 ? null : row.cells[acos];
+      const acosValue = parseShopeeNumber(cellText(row, acos < 0 ? null : acos));
+      if (acosCell && acosValue != null) {
+        aktualBadge(acosCell, "ea-acos-aktual", `ACOS Aktual ${(acosValue * ppn).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`, "ACOS Aktual = ACOS × 1,11");
       }
       stamped += 1;
     }

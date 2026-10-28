@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
 import { detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
+import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
 
@@ -54,6 +55,19 @@ describe("roas", () => {
     expect(profitBadgeText(result.profitBersih)).toBe("Profit Rp434.500");
     expect(adRoasLabel(16, { hargaJual: 100_000, hpp: 40_000 })).toBe("Bagus");
     expect(adRoasLabel(1.5, { hargaJual: 100_000, hpp: 40_000 })).toBe("Rugi");
+  });
+
+  it("derives actual ad cost, ACOS, CPC, and RPM from the metric strip", () => {
+    const extras = perfExtras({ sales: 1_000_000, adSpend: 100_000, impressions: 10_000, clicks: 500, orders: 25 });
+    expect(extras?.adSpendActual).toBeCloseTo(111_000, 5);
+    expect(extras?.roasActual).toBeCloseTo(1_000_000 / 111_000, 5);
+    expect(extras?.conversionPct).toBe(5);
+    expect(extras?.cpc).toBe(200);
+    expect(extras?.cpcActual).toBeCloseTo(222, 5);
+    expect(extras?.acosPct).toBe(10);
+    expect(extras?.acosActualPct).toBeCloseTo(11.1, 5);
+    expect(extras?.rpm).toBe(100_000);
+    expect(perfExtras({ sales: 1, adSpend: 1, impressions: null, clicks: 1, orders: 1 })).toBeNull();
   });
 
   it("reads funnel rates as percents from a performance payload", () => {

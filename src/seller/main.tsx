@@ -6,6 +6,7 @@ import { formatMoney, marketFromHost } from "../shared/money";
 import { classifyPortfolio, funnelBrief, mergeServerClass } from "../shared/funnel";
 import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } from "../shared/research";
 import { stampAdTable } from "../shared/ad-badges";
+import { stampPerfMetrics } from "../shared/perf-metrics";
 import { stampPerfCards } from "../shared/perf-badges";
 import { realProfit, type RoasInput } from "../shared/roas";
 import { hppFor } from "../shared/reports";
@@ -161,7 +162,12 @@ function SellerApp() {
     const ready = books.roas.hargaJual > 0 && books.roas.hpp > 0 ? books.roas : null;
     const look = () => {
       const stamped = stampAdTable(document, ready);
-      setTableNote(stamped ? "Badge laba memakai HPP kalkulator, setelah PPN topup 11%." : "Tabel iklan belum ketemu di halaman ini.");
+      const strip = stampPerfMetrics(document, ready);
+      setTableNote(
+        stamped || strip
+          ? "Badge laba dan biaya iklan aktual memakai HPP kalkulator, setelah PPN topup 11%."
+          : "Tabel iklan belum ketemu di halaman ini.",
+      );
     };
     look();
     const timer = window.setInterval(look, 2000);
@@ -193,6 +199,15 @@ function SellerApp() {
     const result = await callAiProxy(feature, payload, settings.geminiApiKey, settings.geminiModel);
     setNote(result.ok ? result.text : result.error || fallback);
   }
+
+  useEffect(() => {
+    const onInsight = (event: Event) => {
+      const detail = (event as CustomEvent).detail as Record<string, unknown> | undefined;
+      void gemini("ads_insight", { metrics: detail ?? {} }, "Catatan iklan belum tersedia.");
+    };
+    document.addEventListener("ea-ads-insight", onInsight);
+    return () => document.removeEventListener("ea-ads-insight", onInsight);
+  });
 
   if (!settings || !books) return null;
 

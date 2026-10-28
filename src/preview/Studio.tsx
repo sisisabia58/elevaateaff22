@@ -4,6 +4,7 @@ import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
 import { stampAdTable } from "../shared/ad-badges";
+import { stampPerfMetrics } from "../shared/perf-metrics";
 import { classifyPortfolio } from "../shared/funnel";
 import { stampPerfCards } from "../shared/perf-badges";
 import { EMPTY_ROAS } from "../shared/roas";
@@ -58,7 +59,10 @@ export function Studio() {
   useEffect(() => {
     if (scene !== "iklan") return;
     const root = document.querySelector(".ad-demo");
-    if (root) stampAdTable(root, roas);
+    if (root) {
+      stampAdTable(root, roas);
+      stampPerfMetrics(root, roas);
+    }
   }, [scene, roas]);
 
   useEffect(() => {
@@ -283,7 +287,26 @@ export function Studio() {
           {scene === "iklan" && (
             <div className="page ad-demo">
               <h2>Iklan Shopee</h2>
-              <p className="muted">Badge di tabel memakai HPP kalkulator dan PPN topup 11%.</p>
+              <p className="muted">Badge di tabel dan kartu metrik memakai HPP kalkulator dan PPN topup 11%.</p>
+              <div className="line-metrics" data-testid="line-metrics">
+                {[
+                  ["Iklan Dilihat", "10.000"],
+                  ["Jumlah Klik", "500"],
+                  ["Pesanan", "25"],
+                  ["Penjualan", "Rp1.000.000"],
+                  ["Biaya Iklan", "Rp100.000"],
+                  ["ROAS", "10,00"],
+                ].map(([label, value]) => (
+                  <div key={label} className="metric-item">
+                    <div className="top">
+                      <div className="title">{label}</div>
+                    </div>
+                    <div className="content">
+                      <div className="text">{value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
               <table>
                 <thead>
                   <tr>

@@ -53,6 +53,10 @@ button, input { font: inherit; }
   padding: 6px 12px;
 }
 .ad-demo table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 16px; font-size: 13px; }
+.line-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+.metric-item { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; }
+.metric-item .title { color: #6b7280; font-size: 13px; }
+.metric-item .text { font-size: 18px; font-weight: 650; margin-top: 4px; }
 .perf-demo { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 12px 0 16px; }
 .perf-demo .product-item__info { border: 1px solid #eee6da; border-radius: 12px; padding: 10px; background: #fff; display: flex; flex-direction: column; gap: 2px; }
 .perf-demo .product-item__info span { color: #6d655b; font-size: 12px; }
