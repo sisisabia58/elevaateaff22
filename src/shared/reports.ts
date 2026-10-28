@@ -632,6 +632,12 @@ export function monthWindow(period: string): ProfitWindow {
   return { from: `${period}-01`, to: `${period}-${String(last).padStart(2, "0")}` };
 }
 
+/** SENA flow row: abs(amount) / harga produk, one decimal. Hidden when the base is zero. */
+export function flowShare(value: number, base: number): string | null {
+  if (!base) return null;
+  return `${((Math.abs(value) / base) * 100).toFixed(1)}%`;
+}
+
 export function periodLabel(period: string): string {
   const [year, month] = period.split("-");
   return `${MONTHS[Number(month) - 1] || period} ${year}`;

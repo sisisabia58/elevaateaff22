@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, headerPeriod, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore, upsertAds, upsertFinance, upsertOrders } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, flowShare, headerPeriod, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore, upsertAds, upsertFinance, upsertOrders } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -205,6 +205,9 @@ describe("shopee exports", () => {
     const result = demoProfitSnapshot(5000);
     expect(result.flow.pengiriman).toBe(-3000);
     expect(result.flow.admin + result.flow.proses + result.flow.xtra + result.flow.layanan + result.flow.ams + result.flow.kampanye + result.flow.lainnya + result.flow.pengiriman).toBe(-13600);
+    expect(flowShare(result.flow.admin, result.flow.harga)).toBe("5.0%");
+    expect(flowShare(result.flow.pengiriman, result.flow.harga)).toBe("3.0%");
+    expect(flowShare(result.income, 0)).toBeNull();
     expect(result.income).toBe(85100);
     expect(result.adGmv).toBe(40000);
     expect(result.roas).toBe(4);

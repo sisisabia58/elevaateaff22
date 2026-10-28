@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
 import { clearDataConfirm, IMPORT_TYPE_LABELS, importLogRowsLabel, importLogTime, importStatus, type ImportEntry, type ImportLogEntry } from "../shared/imports";
-import { adChartLabel, adGapNote, adSignal, clipAdName, headerPeriod, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { adChartLabel, adGapNote, adSignal, clipAdName, flowShare, headerPeriod, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -368,8 +368,11 @@ export function ProfitBoard({
               )}
             </div>
           )}
-          {snapshot && (snapshot.flow.harga !== 0 || marketplaceCost(snapshot) !== 0) && (
-            <div className="ea-sheet">
+          {snapshot && !snapshot.financeLoaded && (
+            <div className="ea-empty" id="flow-content">Import Laporan Keuangan untuk melihat alur dana</div>
+          )}
+          {snapshot && snapshot.financeLoaded && (
+            <div className="ea-sheet" id="flow-content">
               <div className="ea-kicker">Alur dana</div>
               <table>
                 <tbody>
@@ -383,7 +386,10 @@ export function ProfitBoard({
                   {DISCOUNT_LINES.filter((line) => snapshot.flow[line.key] !== 0).map((line) => (
                     <tr key={line.key}>
                       <td>{line.label}</td>
-                      <td className="down">{formatMoney(snapshot.flow[line.key], market)}</td>
+                      <td className="down">
+                        {formatMoney(snapshot.flow[line.key], market)}
+                        {flowShare(snapshot.flow[line.key], snapshot.flow.harga) && <span className="ea-flow-pct">{flowShare(snapshot.flow[line.key], snapshot.flow.harga)}</span>}
+                      </td>
                     </tr>
                   ))}
                   {FEE_LINES.some((line) => snapshot.flow[line.key] !== 0) && (
@@ -392,24 +398,33 @@ export function ProfitBoard({
                   {FEE_LINES.filter((line) => snapshot.flow[line.key] !== 0).map((line) => (
                     <tr key={line.key}>
                       <td>{line.label}</td>
-                      <td className={snapshot.flow[line.key] < 0 ? "down" : undefined}>{formatMoney(snapshot.flow[line.key], market)}</td>
+                      <td className={snapshot.flow[line.key] < 0 ? "down" : undefined}>
+                        {formatMoney(snapshot.flow[line.key], market)}
+                        {flowShare(snapshot.flow[line.key], snapshot.flow.harga) && <span className="ea-flow-pct">{flowShare(snapshot.flow[line.key], snapshot.flow.harga)}</span>}
+                      </td>
                     </tr>
                   ))}
-                  {marketplaceCost(snapshot) !== 0 && (
-                    <tr>
-                      <td>Total Biaya Shopee</td>
-                      <td className="down">{formatMoney(marketplaceCost(snapshot), market)}</td>
-                    </tr>
-                  )}
+                  <tr>
+                    <td>Total Biaya Shopee</td>
+                    <td className={marketplaceCost(snapshot) < 0 ? "down" : undefined}>{formatMoney(marketplaceCost(snapshot), market)}</td>
+                  </tr>
                   {snapshot.flow.kompensasi !== 0 && (
                     <tr>
                       <td>Kompensasi</td>
-                      <td>{formatMoney(snapshot.flow.kompensasi, market)}</td>
+                      <td>
+                        {formatMoney(snapshot.flow.kompensasi, market)}
+                        {flowShare(snapshot.flow.kompensasi, snapshot.flow.harga) && <span className="ea-flow-pct">{flowShare(snapshot.flow.kompensasi, snapshot.flow.harga)}</span>}
+                      </td>
                     </tr>
                   )}
                   <tr>
                     <td>Income Shopee (net)</td>
-                    <td>{formatMoney(snapshot.income, market)}</td>
+                    <td>
+                      {formatMoney(snapshot.income, market)}
+                      {snapshot.flow.harga > 0 && (
+                        <span className="ea-flow-pct">{((snapshot.income / snapshot.flow.harga) * 100).toFixed(1)}% dari harga produk · {snapshot.released} order</span>
+                      )}
+                    </td>
                   </tr>
                 </tbody>
               </table>

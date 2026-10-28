@@ -365,6 +365,7 @@ export const elevateCss = `
 .ea-sheet td { padding: 6px 4px; border-top: 1px solid #eee6da; }
 .ea-sheet td:nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; }
 .ea-sheet td.down { color: #9f1239; }
+.ea-flow-pct { display: block; margin-top: 2px; font-size: 11px; font-weight: 500; color: #6b7280; }
 .ea-sheet tr.ea-flow-head td { border-top: 0; padding-top: 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #6d655b; }
 .ea-profit-metrics { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }
 .ea-share { width: min(280px, 100%); border-radius: 16px; border: 1px solid #e6dfd2; margin-top: 12px; }
