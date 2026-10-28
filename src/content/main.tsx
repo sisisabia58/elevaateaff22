@@ -507,6 +507,21 @@ function Overlay() {
     setTaskNote(blocked ? "Shopee menghentikan pendalaman." : stopRef.current ? "Dihentikan." : "Stok selesai dibaca.");
   }
 
+  async function deepenOne(item: ScoutItem) {
+    if (running) return;
+    stopRef.current = false;
+    setRunning(true);
+    setTaskNote(`Stok · ${item.name}`);
+    askPage({ type: "FETCH_STOCK", shopId: item.shopId, itemId: item.itemId });
+    const message = await waitPage("STOCK", item.itemId, 8000);
+    if (!message || message.stopped) setTaskNote("Shopee menghentikan pendalaman.");
+    else {
+      applyStock(message);
+      setTaskNote(message.item?.stock == null ? "Stok produk ini tidak terbaca." : `Stok ${message.item.stock.toLocaleString("id-ID")}.`);
+    }
+    setRunning(false);
+  }
+
   async function paginate() {
     if (running) return;
     stopRef.current = false;
@@ -863,6 +878,7 @@ function Overlay() {
         askPage({ type: "STOP_SOLDOUT" });
       }}
       onDeepen={() => void deepen()}
+      onDeepenOne={(item) => void deepenOne(item)}
       onPaginate={() => void paginate()}
       onShopNote={kind === "shop" ? () => void askResearch("shop_research") : undefined}
       taskNote={taskNote}

@@ -44,6 +44,7 @@ export function ScoutPanel({
   running = false,
   onStop,
   onDeepen,
+  onDeepenOne,
   onPaginate,
   onShopNote,
   taskNote,
@@ -76,6 +77,7 @@ export function ScoutPanel({
   running?: boolean;
   onStop?: () => void;
   onDeepen?: () => void;
+  onDeepenOne?: (item: ScoutItem) => void;
   onPaginate?: () => void;
   onShopNote?: () => void;
   taskNote?: string;
@@ -204,6 +206,7 @@ export function ScoutPanel({
                 onStop={onStop}
                 onShopAge={onShopAge}
                 onDeepen={onDeepen}
+                onDeepenOne={onDeepenOne}
                 onAffiliate={onAffiliate}
                 onSoldOut={onSoldOut}
                 onCategory={onCategory}

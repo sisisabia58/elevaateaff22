@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
 import { analyticsCsv, downloadText } from "../shared/csv";
-import { formatMoney } from "../shared/money";
+import { formatMoney, formatRate } from "../shared/money";
+import { downloadDataUrl, drawShareCard } from "../shared/share";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 
-type SortKey = "sold30" | "omset30" | "trend" | "price" | "sold" | "commission" | "stock" | "age";
+type SortKey = "sold30" | "omset30" | "trend" | "price" | "sold" | "commission" | "stock" | "age" | "rating" | "wishlist" | "stockCount" | "share" | "affiliates";
 type StockFilter = "all" | "aktif" | "habis" | "unknown";
 type SampleFilter = "all" | "ya" | "tidak";
 
@@ -22,6 +23,7 @@ function metricNumber(metrics: ItemMetrics | undefined, key: SortKey, commission
   if (key === "commission") return commission;
   if (key === "stock") return metrics.stockValue;
   if (key === "age") return metrics.ageDays;
+  if (key === "share") return metrics.marketSharePct;
   return null;
 }
 
@@ -36,6 +38,7 @@ export function AnalisaTable({
   onStop,
   onShopAge,
   onDeepen,
+  onDeepenOne,
   onAffiliate,
   onSoldOut,
   onCategory,
@@ -51,6 +54,7 @@ export function AnalisaTable({
   onStop?: () => void;
   onShopAge?: () => void;
   onDeepen?: () => void;
+  onDeepenOne?: (item: ScoutItem) => void;
   onAffiliate?: () => void;
   onSoldOut?: () => void;
   onCategory?: () => void;
@@ -89,14 +93,35 @@ export function AnalisaTable({
       : searched.filter((item) => itemBucketIndex(item, bars, dimension, now, shopCtimes) === bucket);
   const dimensionLabel = dimension === "age" ? "Sebaran umur listing" : dimension === "shopAge" ? "Sebaran umur toko" : "Sebaran harga";
   const ordered = [...ranged].sort((a, b) => {
-    const left =
-      sort === "price" ? a.price : sort === "sold" ? metrics.get(a.itemId)?.soldPerMonth ?? a.sold : metricNumber(metrics.get(a.itemId), sort, commissions[a.itemId]?.amount ?? 0);
-    const right =
-      sort === "price" ? b.price : sort === "sold" ? metrics.get(b.itemId)?.soldPerMonth ?? b.sold : metricNumber(metrics.get(b.itemId), sort, commissions[b.itemId]?.amount ?? 0);
+    const left = sortValue(a);
+    const right = sortValue(b);
     const av = left ?? (dir === "desc" ? -Infinity : Infinity);
     const bv = right ?? (dir === "desc" ? -Infinity : Infinity);
     return dir === "desc" ? bv - av : av - bv;
   });
+
+  function sortValue(item: ScoutItem): number | null {
+    if (sort === "price") return item.price;
+    if (sort === "sold") return metrics.get(item.itemId)?.soldPerMonth ?? item.sold;
+    if (sort === "rating") return item.rating;
+    if (sort === "wishlist") return item.wishlist ?? null;
+    if (sort === "stockCount") return item.stock ?? null;
+    if (sort === "affiliates") return commissions[item.itemId]?.promotedLast7d ?? null;
+    return metricNumber(metrics.get(item.itemId), sort, commissions[item.itemId]?.amount ?? 0);
+  }
+
+  function shareRow(item: ScoutItem) {
+    const commission = commissions[item.itemId];
+    const href = drawShareCard({
+      name: item.name,
+      price: formatMoney(item.price, market),
+      commission: commission ? formatMoney(commission.amount, market) : "—",
+      rate: commission ? formatRate(commission.ratePct) : "",
+      shop: item.shopName,
+      affiliates: commission?.promotedLast7d != null ? `${commission.promotedLast7d} affiliate / 7 hari` : null,
+    });
+    if (href) downloadDataUrl(`elevate-${item.itemId}.png`, href);
+  }
 
   function chooseSort(next: SortKey) {
     if (sort === next) setDir((value) => (value === "desc" ? "asc" : "desc"));
@@ -321,11 +346,17 @@ export function AnalisaTable({
                 {head("omset30", "Omset 30")}
                 {head("trend", "Trend")}
                 {head("sold", "Per bulan")}
+                {head("stockCount", "Stok")}
                 {head("stock", "Nilai stok")}
                 {head("age", "Usia")}
+                {head("rating", "Ulasan")}
+                {head("wishlist", "Wishlist")}
+                {head("share", "% market")}
                 {head("commission", "Komisi")}
+                {head("affiliates", "Affiliate")}
                 <th>Iklan</th>
                 <th>Toko</th>
+                <th>Gambar</th>
               </tr>
             </thead>
             <tbody>
@@ -348,18 +379,40 @@ export function AnalisaTable({
                     <td>{metric?.omset30d == null ? "—" : formatMoney(metric.omset30d, market)}</td>
                     <td>{metric?.trendPct == null ? "—" : `${metric.trendPct >= 0 ? "+" : ""}${metric.trendPct.toFixed(0)}%`}</td>
                     <td>{blank(metric?.soldPerMonth)} / bln</td>
+                    <td>
+                      {item.stock == null ? "—" : item.stock.toLocaleString("id-ID")}
+                      {onDeepenOne && item.stock == null && (
+                        <button className="ea-btn" type="button" disabled={running} onClick={() => onDeepenOne(item)}>
+                          Cek stok
+                        </button>
+                      )}
+                    </td>
                     <td>{metric?.stockValue == null ? "—" : formatMoney(metric.stockValue, market)}</td>
                     <td>{metric?.ageDays == null ? "—" : `${Math.round(metric.ageDays)} hr`}</td>
                     <td>
+                      {item.rating == null ? "—" : item.rating.toFixed(1)}
+                      <span>{item.ratingCount != null ? `${item.ratingCount.toLocaleString("id-ID")} ulasan` : ""}</span>
+                    </td>
+                    <td>{item.wishlist == null ? "—" : item.wishlist.toLocaleString("id-ID")}</td>
+                    <td>
+                      {metric?.marketSharePct == null ? "—" : `${metric.marketSharePct.toFixed(1)}%`}
+                      <span>{metric?.shopOmzetSharePct == null ? "" : `${metric.shopOmzetSharePct.toFixed(0)}% omzet toko`}</span>
+                    </td>
+                    <td>
                       {commission ? formatMoney(commission.amount, market) : "—"}
                       <span>
-                        {commission?.freeSample ? "Sample" : ""}
-                        {commission?.promotedLast7d != null ? ` · ${commission.promotedLast7d} affiliate` : ""}
-                        {metric?.shopOmzetSharePct != null ? ` · ${metric.shopOmzetSharePct.toFixed(0)}% omzet` : ""}
+                        {commission ? formatRate(commission.ratePct) : ""}
+                        {commission?.freeSample ? " · Sample" : ""}
                       </span>
                     </td>
+                    <td>{commission?.promotedLast7d == null ? "—" : commission.promotedLast7d.toLocaleString("id-ID")}</td>
                     <td>{item.isAd ? item.adKeyword || "Slot iklan" : "—"}</td>
                     <td>{shopAgeBucket(shopTime, now) ?? "Umur belum diambil"}</td>
+                    <td>
+                      <button className="ea-btn" type="button" onClick={() => shareRow(item)}>
+                        Bagikan
+                      </button>
+                    </td>
                   </tr>
                 );
               })}

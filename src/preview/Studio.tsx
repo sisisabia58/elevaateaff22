@@ -164,6 +164,7 @@ export function Studio() {
                     setTaskNote("Dihentikan.");
                   }}
                   onDeepen={() => setTaskNote("Shopee menghentikan pendalaman.")}
+                  onDeepenOne={(item) => setTaskNote(`Cek stok · ${item.name}`)}
                   onPaginate={() => setTaskNote("Shopee menghentikan pindah halaman.")}
                   onShopAge={() => setTaskNote("Umur toko demo sudah terisi.")}
                   onAffiliate={() => setTaskNote("Cek affiliate butuh sesi Affiliate Shopee.")}
