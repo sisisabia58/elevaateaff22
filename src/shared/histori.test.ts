@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historiCsv, historiFilename, historiFromLabels, historiProductId, pushSnapshot, roasDeltaPct } from "./histori";
+import { historiCsv, historiFilename, historiFromLabels, historiProductId, pushSnapshot, roasDeltaPct, updateSnapshotNote } from "./histori";
 
 describe("performance history", () => {
   it("reads the ads strip into a snapshot with actual ad cost", () => {
@@ -53,5 +53,15 @@ describe("performance history", () => {
     expect(historiFilename("__account__", "2026-10-28")).toBe("histori-performa-akun-2026-10-28.csv");
     expect(historiProductId("https://seller.shopee.co.id/portal/marketing/pas/product/manual/1001")).toBe("1001");
     expect(historiProductId("https://seller.shopee.co.id/portal/marketing/pas")).toBe("__account__");
+  });
+
+  it("updates one snapshot note and clears it when the edit is blank", () => {
+    const first = historiFromLabels({ Penjualan: 100, "Biaya Iklan": 10, "Iklan Dilihat": 20 }, "", "awal", 1)!.snapshot;
+    const second = historiFromLabels({ Penjualan: 200, "Biaya Iklan": 10, "Iklan Dilihat": 20 }, "", "", 2)!.snapshot;
+    const edited = updateSnapshotNote([first, second], 2, "  cek iklan  ");
+    expect(edited[0].note).toBe("awal");
+    expect(edited[1].note).toBe("cek iklan");
+    expect(updateSnapshotNote(edited, 2, "   ")[1].note).toBe("");
+    expect(updateSnapshotNote(edited, 9, "x")).toBe(edited);
   });
 });

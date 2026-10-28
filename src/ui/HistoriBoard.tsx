@@ -12,6 +12,7 @@ import {
   removeSnapshot,
   roasDeltaPct,
   saveHistori,
+  updateSnapshotNote,
   type HistoriSnapshot,
 } from "../shared/histori";
 
@@ -40,6 +41,13 @@ export function HistoriBoard({ productId, scopeSelector }: { productId: string; 
     setList(next);
     await saveHistori(productId, next);
     setStatus(message);
+  }
+
+  async function editNote(row: HistoriSnapshot) {
+    const input = window.prompt("Edit catatan snapshot ini (kosongin buat hapus catatan):", row.note || "");
+    if (input === null) return;
+    const next = updateSnapshotNote(list, row.savedAt, input);
+    await persist(next, input.trim() ? "Catatan diperbarui." : "Catatan dihapus.");
   }
 
   async function save() {
@@ -109,7 +117,12 @@ export function HistoriBoard({ productId, scopeSelector }: { productId: string; 
             <span>Konversi {row.tingkatKonversi == null ? "—" : `${row.tingkatKonversi.toLocaleString("id-ID", { maximumFractionDigits: 2 })}%`}</span>
             <span>Biaya iklan aktual {money(row.biayaIklanAktual)}</span>
             <span>ROAS aktual {row.roasAktual == null ? "—" : row.roasAktual.toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            {row.note ? <span>Catatan: {row.note}</span> : null}
+            <div className="ea-histori-note">
+              <span className={row.note ? undefined : "empty"}>{row.note || "Belum ada catatan"}</span>
+              <button className="ea-btn" type="button" title="Edit catatan snapshot ini" onClick={() => void editNote(row)}>
+                Edit catatan
+              </button>
+            </div>
             {isCurrent && delta != null && (
               <strong className={delta >= 0 ? "up" : "down"}>
                 {delta >= 0 ? "+" : ""}

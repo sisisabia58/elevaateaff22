@@ -307,6 +307,9 @@ export const elevateCss = `
 .ea-histori { margin-top: 14px; }
 .ea-histori-card { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding: 10px; border: 1px solid #eee6da; border-radius: 12px; background: #fff; font-size: 12px; }
 .ea-histori-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ea-histori-note { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.ea-histori-note .empty { color: #9aa1ac; }
+.ea-histori-note .ea-btn { padding: 4px 8px; font-size: 11px; }
 .ea-histori-card .up { color: #0f6e56; }
 .ea-histori-card .down { color: #9f1239; }
 .ea-rank { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-top: 8px; font-size: 13px; }

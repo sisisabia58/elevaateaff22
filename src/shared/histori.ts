@@ -46,6 +46,14 @@ export function removeSnapshot(list: HistoriSnapshot[], savedAt: number): Histor
   return list.filter((snapshot) => snapshot.savedAt !== savedAt);
 }
 
+export function updateSnapshotNote(list: HistoriSnapshot[], savedAt: number, note: string): HistoriSnapshot[] {
+  const index = list.findIndex((snapshot) => snapshot.savedAt === savedAt);
+  if (index < 0) return list;
+  const next = list.slice();
+  next[index] = { ...list[index], note: note.trim() };
+  return next;
+}
+
 function round2(value: number | null): number | "" {
   return typeof value === "number" ? Math.round(value * 100) / 100 : "";
 }

@@ -548,6 +548,7 @@ export function Studio() {
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
             <li>Laba memakai contoh ekspor keuangan: income bersih, alur dana, periode, dan basis tanggal.</li>
+            <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">
             <button type="button" onClick={() => { setEmpty(false); setScoutOpen(true); setScene("search"); }}>
