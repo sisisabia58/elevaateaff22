@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
-import { adChartLabel, adGapNote, adSignal, clipAdName, periodLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { adChartLabel, adGapNote, adSignal, clipAdName, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -56,7 +57,7 @@ export function ProfitBoard({
   range?: ProfitWindow | null;
   onRange?: (range: ProfitWindow | null) => void;
   lines?: HppLine[];
-  onHpp?: (sku: string, value: number) => void;
+  onHpp?: (sku: string, value: number, siblings?: string[]) => void;
   basis?: DateBasis;
   onBasis?: (basis: DateBasis) => void;
   basisWarning?: string | null;
@@ -64,6 +65,9 @@ export function ProfitBoard({
   storeFilter?: string[] | null;
   onStores?: (filter: string[] | null) => void;
 }) {
+  const [hppQuery, setHppQuery] = useState("");
+  const [hppMissing, setHppMissing] = useState(false);
+  const [hppCollapsed, setHppCollapsed] = useState<Record<string, boolean>>({});
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
@@ -275,41 +279,16 @@ export function ProfitBoard({
               <p className="ea-note">Income = dana bersih yang disetorkan Shopee ke saldo penjual setelah semua fee dipotong. Real Profit = Total Income − HPP − Biaya Iklan − Biaya Operasional.</p>
             </div>
           )}
-          {lines.length > 0 && (
-            <div className="ea-sheet">
-              <div className="ea-kicker">Master SKU & HPP</div>
-              <p className="ea-note">Qty di tabel ini total dari semua pesanan yang pernah masuk, bukan cuma periode yang lagi dipilih.</p>
-              <table>
-                <thead>
-                  <tr>
-                    <th>SKU</th>
-                    <th>Produk</th>
-                    <th>Total terjual</th>
-                    <th>HPP / unit</th>
-                    <th>Total HPP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => (
-                    <tr key={line.sku}>
-                      <td>{line.sku}</td>
-                      <td>{line.name}</td>
-                      <td>{line.qty.toLocaleString("id-ID")}</td>
-                      <td>
-                        <input
-                          aria-label={`HPP ${line.sku}`}
-                          type="number"
-                          value={line.hpp || ""}
-                          onChange={(event) => onHpp?.(line.sku, Number(event.target.value) || 0)}
-                        />
-                      </td>
-                      <td>{formatMoney(line.qty * line.hpp, market)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <HppMaster
+            lines={lines}
+            query={hppQuery}
+            onQuery={setHppQuery}
+            onlyMissing={hppMissing}
+            onOnlyMissing={setHppMissing}
+            collapsed={hppCollapsed}
+            onCollapsed={setHppCollapsed}
+            onHpp={onHpp}
+          />
           <p className="ea-note">{hppCount ? `${hppCount} HPP tersimpan.` : "Belum ada HPP."} {note}</p>
           {snapshot && snapshot.shortfalls.length > 0 && (
             <div className="ea-sheet">
@@ -338,6 +317,152 @@ export function ProfitBoard({
           )}
           {snapshot && snapshot.shortfalls.length === 0 && <p className="ea-note">Tidak ada selisih ongkir pada pesanan yang masuk.</p>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function commitHpp(input: HTMLInputElement, siblings: string[], onHpp?: (sku: string, value: number, siblings?: string[]) => void) {
+  const sku = input.dataset.sku || "";
+  const applyAll = input.closest("tr")?.querySelector<HTMLInputElement>(".hpp-apply-all")?.checked;
+  onHpp?.(sku, Number(input.value) || 0, applyAll ? siblings.filter((item) => item !== sku) : []);
+}
+
+function HppMaster({
+  lines,
+  query,
+  onQuery,
+  onlyMissing,
+  onOnlyMissing,
+  collapsed,
+  onCollapsed,
+  onHpp,
+}: {
+  lines: HppLine[];
+  query: string;
+  onQuery: (value: string) => void;
+  onlyMissing: boolean;
+  onOnlyMissing: (value: boolean) => void;
+  collapsed: Record<string, boolean>;
+  onCollapsed: (value: Record<string, boolean>) => void;
+  onHpp?: (sku: string, value: number, siblings?: string[]) => void;
+}) {
+  const view = hppMaster(lines, { query, onlyMissing, collapsed });
+  const products = Object.keys(view.groups);
+  return (
+    <div className="ea-sheet ea-hpp" id="ea-hpp">
+      <div className="ea-kicker">Master SKU & HPP</div>
+      <p className="ea-note">Isi HPP + packaging per unit sekali di sini — dipakai buat hitung profit di semua periode. Qty di tabel ini total dari SEMUA riwayat pesanan yang pernah diimport, bukan cuma periode yang lagi difilter di Dashboard Profit.</p>
+      <div className="ea-hpp-tools">
+        <input
+          id="hpp-master-search"
+          aria-label="Cari SKU atau nama produk"
+          placeholder="Cari SKU atau nama produk…"
+          value={query}
+          onChange={(event) => onQuery(event.target.value)}
+        />
+        <label>
+          <input id="hpp-master-filter-missing" type="checkbox" checked={onlyMissing} onChange={(event) => onOnlyMissing(event.target.checked)} />
+          Cuma yang belum diisi
+        </label>
+        <button type="button" id="btn-hpp-expand-all" onClick={() => onCollapsed(Object.fromEntries(products.map((product) => [product, false])))}>Buka semua</button>
+        <button type="button" id="btn-hpp-collapse-all" onClick={() => onCollapsed(Object.fromEntries(products.map((product) => [product, true])))}>Tutup semua</button>
+      </div>
+      <div className="ea-iklan-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>SKU</th>
+              <th>Nama Produk</th>
+              <th>Nama Varian</th>
+              <th>Total Terjual (semua periode)</th>
+              <th>HPP+Pkg /unit (Rp)</th>
+              <th>Total HPP (Rp)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {view.rows.length === 0 && (
+              <tr><td colSpan={7} className="ea-hpp-empty">Gak ada SKU yang cocok.</td></tr>
+            )}
+            {view.rows.map((row) => row.kind === "group" ? (
+              <tr
+                key={`group-${row.product}`}
+                className="hpp-group-header"
+                onClick={() => onCollapsed({ ...collapsed, [row.product]: !row.collapsed })}
+              >
+                <td>{row.collapsed ? "▶" : "▼"}</td>
+                <td>{row.count} varian</td>
+                <td>{row.product}</td>
+                <td />
+                <td className="num">{Math.round(row.qty).toLocaleString("id-ID")}</td>
+                <td>
+                  {row.filled === row.count ? (
+                    <span className="ea-hpp-badge ok">Semua varian terisi</span>
+                  ) : (
+                    <span className="ea-hpp-badge miss">{row.count - row.filled}/{row.count} varian belum diisi</span>
+                  )}
+                </td>
+                <td className="num">{formatMoney(row.totalHpp, market)}</td>
+              </tr>
+            ) : (
+              <tr key={row.line.sku}>
+                <td>{row.rowNum}</td>
+                <td><span className="ea-hpp-sku">{skuDisplayLabel(row.line.sku)}</span></td>
+                <td className={row.indent ? "indent" : undefined}>{row.indent ? "" : row.line.product || "—"}</td>
+                <td>{row.line.variant || "—"}</td>
+                <td className="num">{Math.round(row.line.qty).toLocaleString("id-ID")}</td>
+                <td>
+                  <div className="ea-hpp-edit">
+                    <input
+                      key={`${row.line.sku}:${row.line.hpp}`}
+                      className="hpp-input"
+                      aria-label={`HPP ${row.line.sku}`}
+                      data-sku={row.line.sku}
+                      type="number"
+                      min={0}
+                      defaultValue={row.line.hpp || ""}
+                      placeholder="0"
+                      onBlur={(event) => commitHpp(event.currentTarget, row.siblings, onHpp)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          commitHpp(event.currentTarget, row.siblings, onHpp);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="hpp-apply-btn"
+                      title="Terapkan HPP"
+                      onClick={(event) => {
+                        const input = event.currentTarget.parentElement?.querySelector("input");
+                        if (input) commitHpp(input, row.siblings, onHpp);
+                      }}
+                    >
+                      ✓
+                    </button>
+                  </div>
+                  {row.siblings.length > 1 && (
+                    <label className="ea-hpp-all">
+                      <input className="hpp-apply-all" type="checkbox" />
+                      Terapkan ke semua varian
+                    </label>
+                  )}
+                </td>
+                <td className="num">{formatMoney(row.line.hpp * row.line.qty, market)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4}>Total (sesuai filter di atas)</td>
+              <td className="num">{Math.round(view.totalQty).toLocaleString("id-ID")}</td>
+              <td />
+              <td className="num">{formatMoney(view.totalHpp, market)}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
   );

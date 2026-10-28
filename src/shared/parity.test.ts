@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, snapshot, studioLedger, toggleStore } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -192,8 +192,8 @@ describe("shopee exports", () => {
     expect(partial.prorated).toBe(true);
     expect(adFraction(ledger.ads[0], monthWindow("2026-10"))).toBe(1);
     expect(hppLines(ledger.orders, { SKU1: 15_000, SKU2: 8_000 })).toEqual([
-      { sku: "SKU1", name: "Tumbler", qty: 2, hpp: 15_000 },
-      { sku: "SKU2", name: "Sedotan", qty: 1, hpp: 8_000 },
+      { sku: "SKU1", name: "Tumbler", product: "Tumbler", variant: "", qty: 2, hpp: 15_000 },
+      { sku: "SKU2", name: "Sedotan", product: "Sedotan", variant: "", qty: 1, hpp: 8_000 },
     ]);
     const ads = parseExportGrid([
       ["Periode", "01/10/2026 - 28/10/2026"],
@@ -354,6 +354,38 @@ describe("shopee exports", () => {
     expect(adSignal(october.campaigns.rows[0].roas)).toBe("Waspada");
     expect(october.campaigns.prorated).toBe(false);
     expect(adGapNote(october.campaigns)).toBeNull();
+  });
+
+  it("groups product variants in the HPP master and searches sku, name, and variant", () => {
+    const parsed = parseTable(
+      ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Nama Variasi", "Jumlah", "Harga Produk", "Status Pesanan"],
+      [
+        ["A1", "SKU-M", "Tumbler", "Merah", "2", "50000", "Selesai"],
+        ["A2", "SKU-B", "Tumbler", "Biru", "1", "50000", "Selesai"],
+        ["B1", "", "Sedotan", "", "3", "10000", "Selesai"],
+        ["C1", "SKU-X", "Talenan", "", "1", "10000", "Batal"],
+      ],
+    );
+    expect(parsed.orders[0].variant).toBe("Merah");
+    const lines = hppLines(parsed.orders, { "SKU-M": 15_000 });
+    expect(lines.find((line) => line.sku === "SKU-B")).toMatchObject({ product: "Tumbler", variant: "Biru", qty: 1, hpp: 0 });
+    expect(lines.find((line) => line.sku.startsWith("NOSKU::"))?.product).toBe("Sedotan");
+    expect(skuDisplayLabel(lines.find((line) => line.product === "Sedotan")!.sku)).toBe("Belum ada SKU");
+    expect(lines.some((line) => line.sku === "SKU-X")).toBe(false);
+    const open = hppMaster(lines);
+    expect(open.rows.find((row) => row.kind === "group")).toMatchObject({ product: "Tumbler", count: 2, filled: 1, collapsed: false, qty: 3 });
+    expect(open.totalQty).toBe(6);
+    expect(open.totalHpp).toBe(30_000);
+    const filled = hppMaster(lines.map((line) => (line.product === "Tumbler" ? { ...line, hpp: 1_000 } : line)));
+    expect(filled.rows.find((row) => row.kind === "group")).toMatchObject({ collapsed: true, filled: 2 });
+    expect(filled.rows.filter((row) => row.kind === "sku").map((row) => (row.kind === "sku" ? row.line.product : ""))).toEqual(["Sedotan"]);
+    expect(filled.totalQty).toBe(6);
+    const biru = hppMaster(lines, { query: "biru" });
+    expect(biru.rows).toHaveLength(1);
+    expect(biru.rows[0]).toMatchObject({ kind: "sku", indent: false });
+    const missing = hppMaster(lines, { onlyMissing: true });
+    expect(missing.rows.every((row) => row.kind === "sku")).toBe(true);
+    expect(missing.totalQty).toBe(4);
   });
 
   it("parses a csv row with quotes", () => {

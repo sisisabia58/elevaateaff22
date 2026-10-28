@@ -18,6 +18,7 @@ export type OrderRow = {
   province?: string | null;
   payment?: string | null;
   shipping?: string | null;
+  variant?: string | null;
 };
 
 export type DateBasis = "created" | "confirmed" | "completed" | "released";
@@ -281,6 +282,7 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
     const province = col(headers, "provinsi");
     const payment = col(headers, "metode pembayaran");
     const shipping = col(headers, "opsi pengiriman");
+    const variant = col(headers, "nama variasi", "nama varian");
     const paid = col(headers, "ongkir dibayar", "ongkos kirim dibayar");
     const cost = col(headers, "ongkir ke kurir", "ongkos kirim ke");
     const status = col(headers, "status");
@@ -298,6 +300,7 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
         province: province >= 0 ? row[province] || "" : null,
         payment: payment >= 0 ? row[payment] || "" : null,
         shipping: shipping >= 0 ? row[shipping] || "" : null,
+        variant: variant >= 0 ? row[variant] || "" : null,
         shippingPaid: num(row[paid]),
         shippingCost: num(row[cost]),
         cancelled: /batal/i.test(row[status] || ""),
@@ -448,7 +451,7 @@ export function snapshot(input: {
     adSpend += row.spend * fraction;
     gmv += row.gmv * fraction;
   }
-  const hpp = active.reduce((sum, row) => sum + (input.hppBySku[row.sku] || 0) * (row.qty || 1), 0);
+  const hpp = active.reduce((sum, row) => sum + (input.hppBySku[hppKey(row)] || 0) * (row.qty || 1), 0);
   const operasional = input.operasional || 0;
   const claimed = new Set(input.claimed);
   const shortfalls = active
@@ -767,19 +770,113 @@ export function adGapNote(detail: AdDetail): string | null {
   return `Laporan iklan khusus periode ${win} belum diupload. Angka Biaya Iklan di atas adalah estimasi prorata (dibagi rata per hari) dari laporan yang tersedia untuk ${reports}. Untuk hasil yang akurat, export "Semua Laporan Iklan CPC" dari Shopee Ads Center khusus periode ${win}, lalu upload di sini.`;
 }
 
-export type HppLine = { sku: string; name: string; qty: number; hpp: number };
+export type HppLine = { sku: string; name: string; product: string; variant: string; qty: number; hpp: number };
+
+export function hppKey(row: { sku?: string | null; name?: string | null; variant?: string | null }): string {
+  const sku = (row.sku || "").trim();
+  if (sku) return sku;
+  const variant = (row.variant || "").trim();
+  const name = (row.name || "").trim();
+  const display = variant ? `${name} • ${variant}` : name;
+  return display ? `NOSKU::${display}` : "Unknown";
+}
+
+export function skuDisplayLabel(sku: string): string {
+  return sku.startsWith("NOSKU::") ? "Belum ada SKU" : sku;
+}
 
 export function hppLines(orders: OrderRow[], hpp: Record<string, number>): HppLine[] {
   const map = new Map<string, HppLine>();
   for (const row of orders) {
-    if (!row.sku || row.cancelled) continue;
-    const current = map.get(row.sku) || { sku: row.sku, name: row.name, qty: 0, hpp: hpp[row.sku] || 0 };
+    if (row.cancelled) continue;
+    const key = hppKey(row);
+    if (key === "Unknown") continue;
+    const current = map.get(key) || { sku: key, name: row.name, product: row.name, variant: row.variant || "", qty: 0, hpp: hpp[key] || 0 };
     current.qty += row.qty || 1;
-    if (row.name) current.name = row.name;
-    current.hpp = hpp[row.sku] || 0;
-    map.set(row.sku, current);
+    if (row.name) {
+      current.name = row.name;
+      current.product = row.name;
+    }
+    if (!current.variant && row.variant) current.variant = row.variant;
+    current.hpp = hpp[key] || 0;
+    map.set(key, current);
   }
   return [...map.values()];
+}
+
+export type HppMasterRow =
+  | { kind: "group"; product: string; count: number; qty: number; filled: number; totalHpp: number; collapsed: boolean }
+  | { kind: "sku"; line: HppLine; rowNum: number; indent: boolean; siblings: string[] };
+
+export function hppMaster(
+  lines: HppLine[],
+  options: { query?: string; onlyMissing?: boolean; collapsed?: Record<string, boolean | undefined> } = {},
+): { rows: HppMasterRow[]; totalQty: number; totalHpp: number; groups: Record<string, string[]> } {
+  const query = (options.query || "").trim().toLowerCase();
+  const onlyMissing = Boolean(options.onlyMissing);
+  const filtering = Boolean(query) || onlyMissing;
+  const groups: Record<string, string[]> = {};
+  const bySku = new Map(lines.map((line) => [line.sku, line]));
+  for (const line of lines) {
+    if (!line.product) continue;
+    (groups[line.product] ||= []).push(line.sku);
+  }
+  for (const product of Object.keys(groups)) {
+    if (groups[product].length < 2) delete groups[product];
+  }
+  const filled = (sku: string) => (bySku.get(sku)?.hpp || 0) > 0;
+  let entries = [...lines];
+  if (query) {
+    entries = entries.filter((line) =>
+      line.sku.toLowerCase().includes(query) || line.product.toLowerCase().includes(query) || line.variant.toLowerCase().includes(query),
+    );
+  }
+  if (onlyMissing) entries = entries.filter((line) => !filled(line.sku));
+  entries.sort((a, b) => {
+    const byProduct = a.product.toLowerCase().localeCompare(b.product.toLowerCase(), "id");
+    return byProduct || a.variant.toLowerCase().localeCompare(b.variant.toLowerCase(), "id");
+  });
+  const rows: HppMasterRow[] = [];
+  let rowNum = 0;
+  for (let index = 0; index < entries.length; ) {
+    const product = entries[index].product;
+    let next = index + 1;
+    while (next < entries.length && product && entries[next].product === product) next += 1;
+    const run = entries.slice(index, next);
+    index = next;
+    if (run.length === 1) {
+      rowNum += 1;
+      rows.push({ kind: "sku", line: run[0], rowNum, indent: false, siblings: groups[product] || [] });
+      continue;
+    }
+    const siblings = groups[product] || run.map((line) => line.sku);
+    const collapsed = !filtering && (options.collapsed?.[product] ?? siblings.every(filled));
+    const totalQty = run.reduce((sum, line) => sum + line.qty, 0);
+    const filledCount = run.filter((line) => filled(line.sku)).length;
+    rows.push({
+      kind: "group",
+      product,
+      count: run.length,
+      qty: totalQty,
+      filled: filledCount,
+      totalHpp: run.reduce((sum, line) => sum + line.hpp * line.qty, 0),
+      collapsed,
+    });
+    if (collapsed) {
+      rowNum += run.length;
+      continue;
+    }
+    for (const line of run) {
+      rowNum += 1;
+      rows.push({ kind: "sku", line, rowNum, indent: true, siblings });
+    }
+  }
+  return {
+    rows,
+    totalQty: entries.reduce((sum, line) => sum + line.qty, 0),
+    totalHpp: entries.reduce((sum, line) => sum + line.hpp * line.qty, 0),
+    groups,
+  };
 }
 
 export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads: AdRow[] } {

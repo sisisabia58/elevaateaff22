@@ -60,7 +60,21 @@ export function Studio() {
     const tag = <T extends { store?: string | null }>(rows: T[]) => rows.map((row) => ({ ...row, store: "Dapur Kecil" }));
     return {
       orders: [
-        ...tag(base.orders),
+        ...tag(base.orders).map((row) => (row.sku === "SKU1" ? { ...row, variant: "Merah" } : row)),
+        {
+          orderNo: "A1B",
+          sku: "SKU1B",
+          name: "Tumbler",
+          variant: "Biru",
+          qty: 1,
+          price: 0,
+          shippingPaid: 0,
+          shippingCost: 0,
+          cancelled: false,
+          createdAt: "2026-10-15",
+          store: "Dapur Kecil",
+          subtotal: 0,
+        },
         {
           orderNo: "C1",
           sku: "SKU3",
@@ -610,7 +624,11 @@ export function Studio() {
                 if (profitPeriod && !months.includes(profitPeriod)) setProfitPeriod(null);
               }}
               lines={hppLines(rowsForStores(ledger.orders, profitStores), profitHpp)}
-              onHpp={(sku, value) => setProfitHpp((current) => ({ ...current, [sku]: value }))}
+              onHpp={(sku, value, siblings = []) => setProfitHpp((current) => {
+                const next = { ...current, [sku]: value };
+                for (const other of siblings) next[other] = value;
+                return next;
+              })}
             />
           )}
         </section>
@@ -624,7 +642,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh dua toko, plus tren harian, biaya, pembayaran, provinsi, kurir, SKU, dan detail iklan per kampanye.</li>
+            <li>Laba memakai contoh dua toko, detail iklan, dan master HPP: cari varian, sembunyikan yang sudah terisi, lalu terapkan HPP ke semua varian.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

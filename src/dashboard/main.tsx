@@ -188,8 +188,10 @@ function DashboardApp() {
           if (period && !months.includes(period)) setPeriod(null);
         }}
         lines={hppLines(rowsForStores(books.orders, storeFilter), books.hpp)}
-        onHpp={(sku, value) => {
-          void persist({ ...books, hpp: { ...books.hpp, [sku]: value } }, null);
+        onHpp={(sku, value, siblings = []) => {
+          const hpp = { ...books.hpp, [sku]: value };
+          for (const other of siblings) hpp[other] = value;
+          void persist({ ...books, hpp }, null);
         }}
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);

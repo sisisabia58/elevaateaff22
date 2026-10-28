@@ -496,6 +496,26 @@ export const elevateCss = `
 .ea-mini { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 11px; margin-top: 3px; }
 .ea-mini i { display: block; height: 8px; border-radius: 4px; min-width: 2px; }
 .ea-mini b { font-variant-numeric: tabular-nums; }
+.ea-hpp-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+.ea-hpp-tools input[type="text"], .ea-hpp-tools input:not([type]) { flex: 1; min-width: 160px; border: 1px solid #86efac; border-radius: 8px; padding: 7px 10px; background: #fff; }
+.ea-hpp-tools label { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #6d655b; white-space: nowrap; }
+.ea-hpp-tools button { border: 1px solid #86efac; background: #fff; color: #166534; border-radius: 8px; padding: 6px 10px; font-size: 11px; }
+.ea-hpp table { min-width: 760px; }
+.ea-hpp th, .ea-hpp td { text-align: left; }
+.ea-hpp.ea-sheet td:nth-child(2) { text-align: left; font-variant-numeric: normal; }
+.ea-hpp td.num, .ea-hpp tfoot td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+.ea-hpp .hpp-group-header { background: #f0fdf4; cursor: pointer; }
+.ea-hpp .indent { padding-left: 20px; }
+.ea-hpp-sku { display: inline-block; background: #f3f4f6; border-radius: 6px; padding: 2px 6px; font-size: 11px; font-weight: 700; }
+.ea-hpp-badge { display: inline-block; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.ea-hpp-badge.ok { background: #dcfce7; color: #166534; }
+.ea-hpp-badge.miss { background: #fef3c7; color: #92400e; }
+.ea-hpp-edit { display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+.ea-hpp-edit input { width: 100px; }
+.ea-hpp-edit button { border: 1px solid #86efac; background: #f0fdf4; color: #166534; border-radius: 6px; width: 26px; height: 26px; }
+.ea-hpp-all { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: #6d655b; }
+.ea-hpp-empty { text-align: center; color: #6d655b; padding: 20px; }
+.ea-hpp tfoot td { color: #166534; font-size: 11px; }
 .ea-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .ea-field label { font-weight: 700; font-size: 13px; }
 .ea-field p { margin: 0; color: #6d655b; font-size: 12px; }
