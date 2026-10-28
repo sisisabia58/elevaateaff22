@@ -123,22 +123,14 @@ export function AnalisaTable({
     if (href) downloadDataUrl(`elevate-${item.itemId}.png`, href);
   }
 
-  function chooseSort(next: SortKey) {
-    if (sort === next) setDir((value) => (value === "desc" ? "asc" : "desc"));
-    else {
-      setSort(next);
-      setDir("desc");
-    }
+  function line(key: SortKey | null, label: string, value: string) {
+    return (
+      <tr>
+        <td className={key && sort === key ? "on" : undefined}>{label}</td>
+        <td>{value}</td>
+      </tr>
+    );
   }
-
-  const head = (key: SortKey, label: string) => (
-    <th>
-      <button type="button" onClick={() => chooseSort(key)} aria-pressed={sort === key}>
-        {label}
-        {sort === key ? (dir === "desc" ? " ↓" : " ↑") : ""}
-      </button>
-    </th>
-  );
 
   return (
     <div className="ea-analisa">
@@ -279,6 +271,31 @@ export function AnalisaTable({
         <button type="button" className="ea-btn" aria-pressed={adsOnly} onClick={() => setAdsOnly((value) => !value)}>
           {adsOnly ? "Semua iklan" : "Iklan saja"}
         </button>
+        <select
+          value={sort}
+          aria-label="Urutkan analisa"
+          onChange={(event) => {
+            setSort(event.target.value as SortKey);
+            setDir("desc");
+          }}
+        >
+          <option value="sold30">Urut: Penjualan 30 hari</option>
+          <option value="omset30">Urut: Omset 30 hari</option>
+          <option value="trend">Urut: Trend</option>
+          <option value="price">Urut: Harga</option>
+          <option value="sold">Urut: Terjual/bulan</option>
+          <option value="commission">Urut: Komisi</option>
+          <option value="stock">Urut: Nilai stok</option>
+          <option value="stockCount">Urut: Stok</option>
+          <option value="age">Urut: Usia listing</option>
+          <option value="rating">Urut: Ulasan</option>
+          <option value="wishlist">Urut: Wishlist</option>
+          <option value="share">Urut: Pangsa pasar</option>
+          <option value="affiliates">Urut: Affiliate</option>
+        </select>
+        <button className="ea-btn" type="button" onClick={() => setDir((value) => (value === "desc" ? "asc" : "desc"))}>
+          {dir === "desc" ? "↓ Turun" : "↑ Naik"}
+        </button>
       </div>
       <div className="ea-scout-tools">
         {running && onStop ? (
@@ -336,88 +353,98 @@ export function AnalisaTable({
           </div>
         </div>
       ) : (
-        <div className="ea-analisa-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Produk</th>
-                {head("price", "Harga")}
-                {head("sold30", "30 hari")}
-                {head("omset30", "Omset 30")}
-                {head("trend", "Trend")}
-                {head("sold", "Per bulan")}
-                {head("stockCount", "Stok")}
-                {head("stock", "Nilai stok")}
-                {head("age", "Usia")}
-                {head("rating", "Ulasan")}
-                {head("wishlist", "Wishlist")}
-                {head("share", "% market")}
-                {head("commission", "Komisi")}
-                {head("affiliates", "Affiliate")}
-                <th>Iklan</th>
-                <th>Toko</th>
-                <th>Gambar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ordered.slice(0, 80).map((item) => {
-                const metric = metrics.get(item.itemId);
-                const commission = commissions[item.itemId];
-                const shopTime = item.shopCtime ?? shopCtimes[item.shopId] ?? null;
-                return (
-                  <tr key={item.itemId}>
-                    <td>
-                      <b>{item.name}</b>
-                      <span>
-                        {item.soldOut === true ? "Habis" : item.soldOut === false ? "Aktif" : "Stok belum dicek"}
-                        {item.ratingCount != null ? ` · ${item.ratingCount} ulasan` : ""}
-                        {item.wishlist != null ? ` · ${item.wishlist} wishlist` : ""}
-                      </span>
-                    </td>
-                    <td>{formatMoney(item.price, market)}</td>
-                    <td>{blank(metric?.sold30d)}</td>
-                    <td>{metric?.omset30d == null ? "—" : formatMoney(metric.omset30d, market)}</td>
-                    <td>{metric?.trendPct == null ? "—" : `${metric.trendPct >= 0 ? "+" : ""}${metric.trendPct.toFixed(0)}%`}</td>
-                    <td>{blank(metric?.soldPerMonth)} / bln</td>
-                    <td>
-                      {item.stock == null ? "—" : item.stock.toLocaleString("id-ID")}
-                      {onDeepenOne && item.stock == null && (
+        <div className="ea-market-list">
+          {ordered.slice(0, 80).map((item) => {
+            const metric = metrics.get(item.itemId);
+            const commission = commissions[item.itemId];
+            const shopTime = item.shopCtime ?? shopCtimes[item.shopId] ?? null;
+            const added = item.ctime ? new Date(item.ctime * 1000).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : null;
+            const hot = (item.sold ?? 0) >= 1000 && item.stock == null;
+            const picture = item.image && /^https?:\/\//.test(item.image) ? item.image : item.image ? `https://down-id.img.susercontent.com/${item.image}_tn` : null;
+            return (
+              <article key={item.itemId} className="ea-market-card">
+                <a className="ea-market-head" href={item.url} target="_blank" rel="noreferrer">
+                  <div className="ea-market-thumb">{picture ? <img src={picture} alt="" /> : <span>Gambar</span>}</div>
+                  <div>
+                    <b>{item.name}</b>
+                    <span className="meta">
+                      {item.soldOut === true && <em className="ea-pill habis">Habis</em>}
+                      {item.soldOut === false && <em className="ea-pill aktif">Aktif</em>}
+                      {item.isAd && <em className="ea-pill iklan">{item.adKeyword || "Iklan"}</em>}
+                      {hot && <em className="ea-pill iklan">Perlu diperdalam</em>}
+                      {item.stock != null && <em className="ea-pill aktif">Data stok</em>}
+                    </span>
+                    <span className="meta">
+                      {item.shopName || "Toko"}
+                      {added ? ` · ditambahkan ${added}` : ""}
+                      {shopAgeBucket(shopTime, now) ? ` · toko ${shopAgeBucket(shopTime, now)}` : ""}
+                    </span>
+                  </div>
+                </a>
+                <div className="ea-market-row">
+                  <span>
+                    Harga <strong>{formatMoney(item.price, market)}</strong>
+                  </span>
+                  <span>
+                    Stok{" "}
+                    {item.stock == null ? (
+                      onDeepenOne ? (
                         <button className="ea-btn" type="button" disabled={running} onClick={() => onDeepenOne(item)}>
                           Cek stok
                         </button>
-                      )}
-                    </td>
-                    <td>{metric?.stockValue == null ? "—" : formatMoney(metric.stockValue, market)}</td>
-                    <td>{metric?.ageDays == null ? "—" : `${Math.round(metric.ageDays)} hr`}</td>
-                    <td>
-                      {item.rating == null ? "—" : item.rating.toFixed(1)}
-                      <span>{item.ratingCount != null ? `${item.ratingCount.toLocaleString("id-ID")} ulasan` : ""}</span>
-                    </td>
-                    <td>{item.wishlist == null ? "—" : item.wishlist.toLocaleString("id-ID")}</td>
-                    <td>
-                      {metric?.marketSharePct == null ? "—" : `${metric.marketSharePct.toFixed(1)}%`}
-                      <span>{metric?.shopOmzetSharePct == null ? "" : `${metric.shopOmzetSharePct.toFixed(0)}% omzet toko`}</span>
-                    </td>
-                    <td>
-                      {commission ? formatMoney(commission.amount, market) : "—"}
-                      <span>
-                        {commission ? formatRate(commission.ratePct) : ""}
-                        {commission?.freeSample ? " · Sample" : ""}
-                      </span>
-                    </td>
-                    <td>{commission?.promotedLast7d == null ? "—" : commission.promotedLast7d.toLocaleString("id-ID")}</td>
-                    <td>{item.isAd ? item.adKeyword || "Slot iklan" : "—"}</td>
-                    <td>{shopAgeBucket(shopTime, now) ?? "Umur belum diambil"}</td>
-                    <td>
-                      <button className="ea-btn" type="button" onClick={() => shareRow(item)}>
-                        Bagikan
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      ) : (
+                        "—"
+                      )
+                    ) : (
+                      <strong>{item.stock.toLocaleString("id-ID")}</strong>
+                    )}
+                  </span>
+                </div>
+                <div className="ea-market-section">Trend</div>
+                <table>
+                  <tbody>
+                    {line("sold", "Terjual/bulan", blank(metric?.soldPerMonth))}
+                    {line(null, "Omset/bulan", metric?.omsetPerBulan == null ? "—" : formatMoney(metric.omsetPerBulan, market))}
+                    {line("sold30", "Penjualan 30 hari", blank(metric?.sold30d))}
+                    {line("omset30", "Omset 30 hari", metric?.omset30d == null ? "—" : formatMoney(metric.omset30d, market))}
+                    {line("trend", "Trend 30 hari", metric?.trendPct == null ? "—" : `${metric.trendPct >= 0 ? "+" : ""}${metric.trendPct.toFixed(0)}%`)}
+                    {line("age", "Usia listing", metric?.ageDays == null ? "—" : `${Math.round(metric.ageDays)} hr`)}
+                  </tbody>
+                </table>
+                <div className="ea-market-section">Potensi dan performa</div>
+                <table>
+                  <tbody>
+                    {line("rating", "Nilai ulasan", item.rating == null ? "—" : `${item.rating.toFixed(1)}${item.ratingCount != null ? ` (${item.ratingCount.toLocaleString("id-ID")})` : ""}`)}
+                    {line("wishlist", "Wishlist", item.wishlist == null ? "—" : item.wishlist.toLocaleString("id-ID"))}
+                    {line("share", "Pangsa pasar", metric?.marketSharePct == null ? "—" : `${metric.marketSharePct.toFixed(1)}%`)}
+                    {line("stock", "Estimasi nilai stok", metric?.stockValue == null ? "—" : formatMoney(metric.stockValue, market))}
+                  </tbody>
+                </table>
+                <div className="ea-market-section">Statistik total</div>
+                <table>
+                  <tbody>
+                    {line(null, "Total terjual", blank(item.sold))}
+                    {line(null, "Total omset", metric?.totalOmset == null ? "—" : formatMoney(metric.totalOmset, market))}
+                    {line(null, "Umur toko", shopAgeBucket(shopTime, now) ?? "belum diambil")}
+                  </tbody>
+                </table>
+                <div className="ea-market-section">Komisi</div>
+                <table>
+                  <tbody>
+                    {line("commission", "Est. besar komisi", commission ? formatMoney(commission.amount, market) : "—")}
+                    {line(null, "Est. rate", commission ? formatRate(commission.ratePct) : "—")}
+                    {line("affiliates", "Affiliate 7 hari", commission?.promotedLast7d == null ? "—" : commission.promotedLast7d.toLocaleString("id-ID"))}
+                    {line(null, "Sample gratis", commission?.freeSample == null ? "—" : commission.freeSample ? "Ya" : "Tidak")}
+                  </tbody>
+                </table>
+                <div className="ea-actions">
+                  <button className="ea-btn" type="button" onClick={() => shareRow(item)}>
+                    Bagikan
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
     </div>
