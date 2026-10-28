@@ -55,6 +55,7 @@ export function Studio() {
   const [profitBasis, setProfitBasis] = useState<DateBasis>("created");
   const [profitStores, setProfitStores] = useState<string[] | null>(null);
   const [profitHpp, setProfitHpp] = useState<Record<string, number>>({ SKU1: 15_000, SKU2: 8_000 });
+  const [profitClaimed, setProfitClaimed] = useState<string[]>([]);
   const ledger = useMemo(() => {
     const base = studioLedger();
     const tag = <T extends { store?: string | null }>(rows: T[]) => rows.map((row) => ({ ...row, store: "Dapur Kecil" }));
@@ -594,7 +595,7 @@ export function Studio() {
                 finance: ledger.finance,
                 ads: ledger.ads,
                 hppBySku: profitHpp,
-                claimed: [],
+                claimed: profitClaimed,
                 operasional: ops,
                 period: profitRange?.from && profitRange?.to ? null : profitPeriod,
                 range: profitRange?.from && profitRange?.to ? profitRange : null,
@@ -624,6 +625,7 @@ export function Studio() {
                 if (profitPeriod && !months.includes(profitPeriod)) setProfitPeriod(null);
               }}
               lines={hppLines(rowsForStores(ledger.orders, profitStores), profitHpp)}
+              onClaim={(orderNo, claimed) => setProfitClaimed((current) => claimed ? [...current, orderNo] : current.filter((id) => id !== orderNo))}
               onHpp={(sku, value, siblings = []) => setProfitHpp((current) => {
                 const next = { ...current, [sku]: value };
                 for (const other of siblings) next[other] = value;
