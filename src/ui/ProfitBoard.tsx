@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
+import { importStatus, type ImportEntry } from "../shared/imports";
 import { adChartLabel, adGapNote, adSignal, clipAdName, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
@@ -45,6 +46,7 @@ export function ProfitBoard({
   stores = [],
   storeFilter = null,
   onStores,
+  imports,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
@@ -64,6 +66,7 @@ export function ProfitBoard({
   stores?: string[];
   storeFilter?: string[] | null;
   onStores?: (filter: string[] | null) => void;
+  imports?: ImportEntry[];
 }) {
   const [hppQuery, setHppQuery] = useState("");
   const [hppMissing, setHppMissing] = useState(false);
@@ -78,6 +81,7 @@ export function ProfitBoard({
         <div className="ea-dash-wrap">
           <div className="ea-mark">E</div>
           <h1>Laba</h1>
+          {imports && <ImportChips entries={imports} />}
           <p className="lede">Omzet, penghasilan, ROAS iklan, dan laba setelah HPP. File ekspor Shopee dibaca di browser ini.</p>
           {!snapshot && (
             <div className="ea-empty">
@@ -343,6 +347,30 @@ export function ProfitBoard({
             />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportChips({ entries }: { entries: ImportEntry[] }) {
+  const chips = importStatus(entries);
+  return (
+    <div className="ea-imports" id="ea-imports">
+      <div className="ea-tb-files" id="tb-files">
+        {chips.map((chip) => (
+          <span key={chip.type} className={`tb-file ${chip.state}`} title={chip.title} data-type={chip.type}>
+            {chip.state === "missing" ? `⬜ ${chip.short}` : `${chip.state === "stale" ? "!" : "✓"} ${chip.shortDate}`}
+          </span>
+        ))}
+      </div>
+      <div className="ea-import-row">
+        {chips.map((chip) => (
+          <div key={chip.type} id={`dz-${chip.type}`} className={`import-status-chip ${chip.state === "ok" ? "loaded" : chip.state}`} title={chip.title}>
+            <div className="dz-label">{chip.label}</div>
+            <div className={`dz-status ${chip.state === "ok" ? "ok" : chip.state}`}>{chip.status}</div>
+            {chip.filename && <div className="dz-fname">{chip.filename}</div>}
+          </div>
+        ))}
       </div>
     </div>
   );

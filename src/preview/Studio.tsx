@@ -13,6 +13,7 @@ import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
+import type { ImportEntry } from "../shared/imports";
 import { dateBasisWarning, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
@@ -39,6 +40,11 @@ const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "iklan", label: "Iklan" },
   { id: "performa", label: "Performa" },
   { id: "profit", label: "Laba" },
+];
+
+const previewImports: ImportEntry[] = [
+  { type: "pesanan", filename: "pesanan-okt.xlsx", ts: Date.now() - 2 * 86_400_000 },
+  { type: "keuangan", filename: "keuangan-sept.xlsx", ts: Date.now() - 40 * 86_400_000 },
 ];
 
 export function Studio() {
@@ -604,6 +610,7 @@ export function Studio() {
               })}
               hppCount={Object.keys(profitHpp).length}
               note="Dapur Kecil: Tumbler dibuat 15 Okt dan Sedotan September. Toko Laut: Wajan 12 Agu. Iklan Dapur Kecil hanya 1–28 Oktober."
+              imports={previewImports}
               onOperasional={setOps}
               periods={listPeriods(ledger.orders, ledger.finance, profitBasis, profitStores)}
               period={profitPeriod}
@@ -644,7 +651,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh dua toko, detail iklan, master HPP, dan kartu selisih ongkir yang membuka daftar klaim.</li>
+            <li>Laba memakai contoh dua toko, detail iklan, master HPP, selisih ongkir, dan chip impor yang menguning setelah 35 hari.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

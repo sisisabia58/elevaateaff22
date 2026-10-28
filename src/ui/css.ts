@@ -536,6 +536,21 @@ button.ea-shortfall strong { color: #6d28d9; }
 .ea-modal tr.claimed td { color: #6d655b; text-decoration: line-through; }
 .ea-modal tr.claimed td.num { color: #6d655b; }
 .ea-shortfall-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 11px; color: #6d655b; flex-wrap: wrap; }
+.ea-imports { margin: 0 0 14px; }
+.ea-tb-files { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.tb-file { display: inline-flex; align-items: center; gap: 5px; background: #f9fafb; border: 1px solid #e6dfd2; border-radius: 20px; padding: 4px 10px; font-size: 11px; }
+.tb-file.ok { border-color: #86efac; background: #f0fdf4; color: #166534; }
+.tb-file.missing { border-color: #fcd34d; background: #fffbeb; color: #92400e; }
+.tb-file.stale { border-color: #fdba74; background: #fff7ed; color: #9a3412; }
+.ea-import-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.import-status-chip { background: #fffdf9; border: 1px solid #e6dfd2; border-radius: 10px; padding: 10px 12px; }
+.import-status-chip.loaded { border-color: #16a34a; background: #f0fdf4; }
+.import-status-chip.stale { border-color: #f59e0b; background: #fffbeb; }
+.import-status-chip .dz-label { font-size: 12px; font-weight: 700; }
+.dz-status { font-size: 10px; margin-top: 4px; font-weight: 600; color: #6d655b; }
+.dz-status.ok { color: #166534; }
+.dz-status.stale { color: #b45309; }
+.dz-fname { font-size: 10px; color: #6d655b; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ea-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .ea-field label { font-weight: 700; font-size: 13px; }
 .ea-field p { margin: 0; color: #6d655b; font-size: 12px; }

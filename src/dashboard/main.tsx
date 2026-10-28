@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import * as XLSX from "xlsx";
 import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
+import { rememberImport } from "../shared/imports";
 import { downloadText } from "../shared/csv";
 import { dateBasisWarning, hppLines, listPeriods, listStores, mergeStoreRows, parseCsv, parseExportGrid, parseHppCsv, peekStoreName, rowsForStores, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
@@ -98,6 +99,7 @@ function DashboardApp() {
         orders: parsed.kind === "pesanan" ? mergeStoreRows(books.orders, parsed.orders, store) : books.orders,
         finance: parsed.kind === "keuangan" ? mergeStoreRows(books.finance, parsed.finance, store) : books.finance,
         ads: parsed.kind === "iklan" ? mergeStoreRows(books.ads, parsed.ads, store) : books.ads,
+        imports: rememberImport(books.imports, { type: parsed.kind, filename: file.name, ts: Date.now() }),
       };
       await persist(next, `Ekspor ${parsed.kind} masuk.`);
     } catch {
@@ -132,7 +134,19 @@ function DashboardApp() {
                   const orders = parseExportGrid(gridOf(SAMPLE_ORDERS)).orders;
                   const finance = parseExportGrid(gridOf(SAMPLE_FINANCE)).finance;
                   const ads = parseExportGrid(gridOf(SAMPLE_ADS)).ads;
-                  void persist({ ...books, orders, finance, ads, hpp: { ...books.hpp, SKU1: 15000 } }, "Contoh dimuat.");
+                  const now = Date.now();
+                  void persist({
+                    ...books,
+                    orders,
+                    finance,
+                    ads,
+                    hpp: { ...books.hpp, SKU1: 15000 },
+                    imports: [
+                      { type: "pesanan", filename: "contoh-pesanan.csv", ts: now },
+                      { type: "keuangan", filename: "contoh-keuangan.csv", ts: now },
+                      { type: "iklan", filename: "contoh-iklan.csv", ts: now },
+                    ],
+                  }, "Contoh dimuat.");
                 }}
               >
                 Muat contoh
@@ -196,6 +210,7 @@ function DashboardApp() {
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);
         }}
+        imports={books.imports}
         onClaim={(orderNo, claimed) => {
           const next = claimed ? [...books.claimed, orderNo] : books.claimed.filter((id) => id !== orderNo);
           void persist({ ...books, claimed: next }, claimed ? "Ditandai diklaim." : "Klaim dibuka lagi.");
