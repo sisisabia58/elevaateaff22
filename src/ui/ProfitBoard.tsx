@@ -4,16 +4,39 @@ import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
 
+const DISCOUNT_LINES: Array<{ key: keyof ProfitSnapshot["flow"]; label: string }> = [
+  { key: "cashback", label: "Voucher / Cashback Penjual" },
+  { key: "promoOngkir", label: "Promo Gratis Ongkir Penjual" },
+  { key: "refund", label: "Pengembalian Dana ke Pembeli" },
+];
+
+const FEE_LINES: Array<{ key: keyof ProfitSnapshot["flow"]; label: string }> = [
+  { key: "admin", label: "Biaya Administrasi" },
+  { key: "proses", label: "Biaya Proses Pesanan" },
+  { key: "pengiriman", label: "Biaya Pengiriman (net)" },
+  { key: "xtra", label: "Biaya XTRA (Gratis Ongkir)" },
+  { key: "layanan", label: "Biaya Layanan & Video XTRA" },
+  { key: "ams", label: "Komisi AMS / Afiliasi Shopee" },
+  { key: "kampanye", label: "Biaya Kampanye" },
+  { key: "lainnya", label: "Biaya Lainnya / Pajak" },
+];
+
+function marketplaceCost(snapshot: ProfitSnapshot): number {
+  return FEE_LINES.reduce((sum, line) => sum + snapshot.flow[line.key], 0);
+}
+
 export function ProfitBoard({
   snapshot,
   hppCount,
   note,
   onClaim,
+  onOperasional,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
   note?: string | null;
   onClaim?: (orderNo: string, claimed: boolean) => void;
+  onOperasional?: (value: number) => void;
 }) {
   return (
     <div className="ea-root">
@@ -30,23 +53,113 @@ export function ProfitBoard({
             </div>
           )}
           {snapshot && (
-            <div className="ea-metrics">
+            <div className="ea-metrics ea-profit-metrics">
               <article className="ea-metric">
-                <span className="ea-kicker">Omzet</span>
+                <span className="ea-kicker">Total Omzet</span>
                 <strong>{formatMoney(snapshot.omzet, market)}</strong>
+                <span>{snapshot.orders} order</span>
               </article>
+              {marketplaceCost(snapshot) !== 0 && (
+                <article className="ea-metric">
+                  <span className="ea-kicker">Biaya Marketplace Shopee</span>
+                  <strong>{formatMoney(Math.abs(marketplaceCost(snapshot)), market)}</strong>
+                  <span>
+                    {snapshot.flow.harga > 0 ? `${((Math.abs(marketplaceCost(snapshot)) / snapshot.flow.harga) * 100).toFixed(1)}% dari harga produk` : "—"} · {snapshot.orders} order
+                  </span>
+                </article>
+              )}
               <article className="ea-metric">
-                <span className="ea-kicker">Penghasilan</span>
+                <span className="ea-kicker">Income Shopee (net)</span>
                 <strong>{formatMoney(snapshot.income, market)}</strong>
+                <span>{snapshot.flow.harga > 0 ? `${((snapshot.income / snapshot.flow.harga) * 100).toFixed(1)}% dari harga produk` : "—"}</span>
               </article>
               <article className="ea-metric">
-                <span className="ea-kicker">ROAS iklan</span>
-                <strong>{snapshot.adSpend > 0 ? `${snapshot.roas.toFixed(2)}x` : "—"}</strong>
+                <span className="ea-kicker">Biaya Iklan Shopee</span>
+                <strong>{formatMoney(snapshot.adSpend, market)}</strong>
+                <span>{snapshot.adSpend > 0 ? `ROAS: ${snapshot.roas.toFixed(2)}×` : "—"}</span>
+              </article>
+              <article className="ea-metric">
+                <span className="ea-kicker">GMV dari Iklan</span>
+                <strong>{formatMoney(snapshot.adGmv, market)}</strong>
+                <span>Omzet dari iklan</span>
+              </article>
+              <article className="ea-metric">
+                <span className="ea-kicker">Overall ROAS</span>
+                <strong>{snapshot.adSpend > 0 ? `${snapshot.roas.toFixed(2)}×` : "—"}</strong>
+                <span>GMV / Ad Spend</span>
+              </article>
+              <article className="ea-metric">
+                <span className="ea-kicker">Order Batal</span>
+                <strong>{snapshot.cancelled}</strong>
               </article>
               <article className="ea-metric">
                 <span className="ea-kicker">Laba</span>
                 <strong>{formatMoney(snapshot.profit, market)}</strong>
               </article>
+            </div>
+          )}
+          {snapshot && (
+            <p className="ea-note">
+              {formatMoney(snapshot.income, market)} − {formatMoney(snapshot.hpp, market)} (HPP) − {formatMoney(snapshot.adSpend, market)} (Iklan) − {formatMoney(snapshot.operasional, market)} (Ops) = {formatMoney(snapshot.profit, market)}
+            </p>
+          )}
+          {snapshot && onOperasional && (
+            <label className="ea-field">
+              Operasional
+              <input
+                aria-label="Operasional"
+                type="number"
+                value={snapshot.operasional}
+                onChange={(event) => onOperasional(Number(event.target.value) || 0)}
+              />
+            </label>
+          )}
+          {snapshot && (snapshot.flow.harga !== 0 || marketplaceCost(snapshot) !== 0) && (
+            <div className="ea-sheet">
+              <div className="ea-kicker">Alur dana</div>
+              <table>
+                <tbody>
+                  <tr>
+                    <td>Harga Produk Terjual (gross)</td>
+                    <td>{formatMoney(snapshot.flow.harga, market)}</td>
+                  </tr>
+                  {DISCOUNT_LINES.some((line) => snapshot.flow[line.key] !== 0) && (
+                    <tr className="ea-flow-head"><td colSpan={2}>DISKON DITANGGUNG PENJUAL</td></tr>
+                  )}
+                  {DISCOUNT_LINES.filter((line) => snapshot.flow[line.key] !== 0).map((line) => (
+                    <tr key={line.key}>
+                      <td>{line.label}</td>
+                      <td className="down">{formatMoney(snapshot.flow[line.key], market)}</td>
+                    </tr>
+                  ))}
+                  {FEE_LINES.some((line) => snapshot.flow[line.key] !== 0) && (
+                    <tr className="ea-flow-head"><td colSpan={2}>BIAYA MARKETPLACE SHOPEE</td></tr>
+                  )}
+                  {FEE_LINES.filter((line) => snapshot.flow[line.key] !== 0).map((line) => (
+                    <tr key={line.key}>
+                      <td>{line.label}</td>
+                      <td className={snapshot.flow[line.key] < 0 ? "down" : undefined}>{formatMoney(snapshot.flow[line.key], market)}</td>
+                    </tr>
+                  ))}
+                  {marketplaceCost(snapshot) !== 0 && (
+                    <tr>
+                      <td>Total Biaya Shopee</td>
+                      <td className="down">{formatMoney(marketplaceCost(snapshot), market)}</td>
+                    </tr>
+                  )}
+                  {snapshot.flow.kompensasi !== 0 && (
+                    <tr>
+                      <td>Kompensasi</td>
+                      <td>{formatMoney(snapshot.flow.kompensasi, market)}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td>Income Shopee (net)</td>
+                    <td>{formatMoney(snapshot.income, market)}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p className="ea-note">Income = dana bersih yang disetorkan Shopee ke saldo penjual setelah semua fee dipotong. Real Profit = Total Income − HPP − Biaya Iklan − Biaya Operasional.</p>
             </div>
           )}
           <p className="ea-note">{hppCount ? `${hppCount} HPP tersimpan.` : "Belum ada HPP."} {note}</p>

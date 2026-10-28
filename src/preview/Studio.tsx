@@ -12,6 +12,7 @@ import type { RoasPreset } from "../shared/presets";
 import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
+import { demoProfitSnapshot } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -46,6 +47,7 @@ export function Studio() {
   const [taskNote, setTaskNote] = useState<string | undefined>(undefined);
   const [shareUrl, setShareUrl] = useState("");
   const [roas, setRoas] = useState(EMPTY_ROAS);
+  const [ops, setOps] = useState(0);
   const [presets, setPresets] = useState<Record<string, RoasPreset>>({
     Tumbler: { ...EMPTY_ROAS, hargaJual: 100_000, hpp: 40_000, productId: "1001" },
     Talenan: { ...EMPTY_ROAS, hargaJual: 77_000, hpp: 20_000 },
@@ -461,7 +463,7 @@ export function Studio() {
             </div>
           )}
           {scene === "profit" && (
-            <ProfitBoard snapshot={null} hppCount={0} note="Dashboard kosong. Muat contoh ada di tab extension." />
+            <ProfitBoard snapshot={demoProfitSnapshot(ops)} hppCount={1} note="Contoh satu pesanan Tumbler." onOperasional={setOps} />
           )}
         </section>
         <aside className="side-note">
@@ -474,6 +476,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
+            <li>Laba memakai contoh ekspor keuangan: income bersih, alur dana, dan operasional.</li>
           </ul>
           <div className="studio-tools">
             <button type="button" onClick={() => { setEmpty(false); setScoutOpen(true); setScene("search"); }}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
+import { demoProfitSnapshot, detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -129,12 +129,13 @@ describe("shopee exports", () => {
   it("detects the three report types and computes profit", () => {
     expect(detectExportKind(["No. Pesanan", "Harga Produk", "Jumlah"])).toBe("pesanan");
     expect(detectExportKind(["No. Pesanan", "Total Penghasilan", "Biaya Administrasi"])).toBe("keuangan");
+    expect(detectExportKind(["No. Pesanan", "Harga Produk", "Biaya Administrasi", "Ongkir Dibayar Pembeli"])).toBe("keuangan");
     expect(detectExportKind(["Nama Iklan", "Biaya", "Omzet Penjualan"])).toBe("iklan");
     const orders = parseTable(
       ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Jumlah", "Harga Produk", "Ongkir dibayar pembeli", "Ongkir ke kurir", "Status Pesanan"],
       [["A1", "SKU1", "Tumbler", "2", "80000", "5000", "12000", "Selesai"], ["A2", "SKU1", "Tumbler", "1", "40000", "0", "0", "Batal"]],
     );
-    const finance = parseTable(["No. Pesanan", "Harga Produk", "Total Penghasilan", "Biaya Administrasi", "Biaya Layanan"], [["A1", "80000", "70000", "4000", "1000"]]);
+    const finance = parseTable(["No. Pesanan", "Harga Produk", "Total Penghasilan", "Biaya Administrasi", "Biaya Layanan"], [["A1", "80000", "75000", "-4000", "-1000"]]);
     const ads = parseTable(["Nama Iklan", "Biaya", "Omzet Penjualan", "Produk Terjual"], [["Tumbler", "10000", "40000", "2"]]);
     const result = snapshot({
       orders: orders.orders,
@@ -146,10 +147,21 @@ describe("shopee exports", () => {
     expect(result.orders).toBe(1);
     expect(result.cancelled).toBe(1);
     expect(result.hpp).toBe(30000);
-    expect(result.profit).toBe(70000 - 5000 - 30000 - 10000);
+    expect(result.income).toBe(75000);
+    expect(result.profit).toBe(75000 - 30000 - 10000);
     expect(result.shortfalls[0]).toMatchObject({ orderNo: "A1", amount: 7000 });
     expect(result.roas).toBe(4);
     expect(parseHppCsv("sku,varian,hpp\nSKU1,Merah,15000")).toEqual({ "SKU1|Merah": 15000 });
+  });
+
+  it("rebuilds net income from the signed Shopee finance columns", () => {
+    const result = demoProfitSnapshot(5000);
+    expect(result.flow.pengiriman).toBe(-3000);
+    expect(result.flow.admin + result.flow.proses + result.flow.xtra + result.flow.layanan + result.flow.ams + result.flow.kampanye + result.flow.lainnya + result.flow.pengiriman).toBe(-13600);
+    expect(result.income).toBe(85100);
+    expect(result.adGmv).toBe(40000);
+    expect(result.roas).toBe(4);
+    expect(result.profit).toBe(85100 - 30000 - 10000 - 5000);
   });
 
   it("parses a csv row with quotes", () => {

@@ -10,6 +10,7 @@ export type Books = {
   ads: AdRow[];
   claimed: string[];
   hpp: Record<string, number>;
+  operasional: number;
   roas: RoasInput;
   presets: Record<string, RoasPreset>;
 };
@@ -20,6 +21,7 @@ export const EMPTY_BOOKS: Books = {
   ads: [],
   claimed: [],
   hpp: {},
+  operasional: 0,
   roas: EMPTY_ROAS,
   presets: {},
 };

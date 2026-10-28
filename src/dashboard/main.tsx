@@ -11,7 +11,7 @@ const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga 
 A1,SKU1,Tumbler,2,80000,5000,12000,Selesai
 A2,SKU1,Tumbler,1,40000,0,0,Batal`;
 const SAMPLE_FINANCE = `No. Pesanan,Harga Produk,Total Penghasilan,Biaya Administrasi,Biaya Layanan
-A1,80000,70000,4000,1000`;
+A1,80000,75000,-4000,-1000`;
 const SAMPLE_ADS = `Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
 Tumbler,10000,40000,2`;
 
@@ -47,12 +47,14 @@ function DashboardApp() {
       ads: books.ads,
       hppBySku: books.hpp,
       claimed: books.claimed,
+      operasional: books.operasional || 0,
     });
   }, [books]);
 
-  async function persist(next: Books, message: string) {
+  async function persist(next: Books, message: string | null) {
     setBooks(next);
     await saveBooks(next);
+    if (message == null) return;
     const session = await loadSession();
     setNote(session?.userId ? `${message} Cadangan HPP dikirim ke Supabase.` : `${message} Tersimpan di browser ini.`);
   }
@@ -143,6 +145,9 @@ function DashboardApp() {
         snapshot={view}
         hppCount={Object.keys(books.hpp).length}
         note={note}
+        onOperasional={(value) => {
+          void persist({ ...books, operasional: value }, null);
+        }}
         onClaim={(orderNo, claimed) => {
           const next = claimed ? [...books.claimed, orderNo] : books.claimed.filter((id) => id !== orderNo);
           void persist({ ...books, claimed: next }, claimed ? "Ditandai diklaim." : "Klaim dibuka lagi.");
