@@ -4,6 +4,7 @@ export function drawShareCard(input: {
   commission: string;
   rate: string;
   shop: string | null;
+  affiliates?: string | null;
 }): string {
   const canvas = document.createElement("canvas");
   canvas.width = 800;
@@ -36,7 +37,11 @@ export function drawShareCard(input: {
   ctx.font = "700 64px sans-serif";
   ctx.fillText(input.commission, 80, 760);
   ctx.font = "600 28px sans-serif";
-  ctx.fillText(input.rate, 80, 800);
+  ctx.fillText(input.rate, 80, 790);
+  if (input.affiliates) {
+    ctx.font = "600 24px sans-serif";
+    ctx.fillText(input.affiliates, 80, 824);
+  }
   return canvas.toDataURL("image/png");
 }
 

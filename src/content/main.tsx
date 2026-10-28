@@ -14,6 +14,7 @@ import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { affiliateOriginFor, classifyLocation, parseShopeeIds } from "../shared/shopee";
 import { SOURCE, type CommissionView, type LiveCommission, type ScoutItem, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
+import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { RankingList } from "../ui/RankingList";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
@@ -40,6 +41,35 @@ type PageMessage = {
 };
 
 const dockMounts = new WeakMap<HTMLElement, HTMLElement>();
+const actionMounts = new WeakMap<HTMLElement, HTMLElement>();
+const COMMISSION_CACHE_KEY = "ea-commission-cache";
+const COMMISSION_CACHE_MS = 86_400_000;
+
+function buyButton(): HTMLElement | null {
+  for (const button of document.querySelectorAll("button")) {
+    const text = (button.textContent || "").replace(/\s+/g, " ").trim();
+    if (text.length > 32) continue;
+    if (/^(beli|buy now)\b/i.test(text)) return button;
+  }
+  return null;
+}
+
+function cartButton(): HTMLElement | null {
+  for (const button of document.querySelectorAll("button")) {
+    const text = (button.textContent || "").replace(/\s+/g, " ").trim();
+    if (/^(masukkan keranjang|add to cart|tambah dalam troli)$/i.test(text)) return button;
+  }
+  return null;
+}
+
+function quantityRow(): HTMLElement | null {
+  for (const node of document.querySelectorAll("div, span, label, p, strong")) {
+    const text = (node.textContent || "").replace(/\s+/g, " ").trim();
+    if (text.length > 16) continue;
+    if (/^(kuantitas|quantity|kuantiti)\s*:?$/i.test(text)) return node.parentElement;
+  }
+  return null;
+}
 
 function askPage(payload: Record<string, unknown>) {
   window.postMessage({ source: SOURCE, channel: "page-request", ...payload }, location.origin);
@@ -81,6 +111,7 @@ function Overlay() {
   const [taskNote, setTaskNote] = useState<string | undefined>(undefined);
   const [running, setRunning] = useState(false);
   const [dockMount, setDockMount] = useState<HTMLElement | null>(null);
+  const [actionMount, setActionMount] = useState<HTMLElement | null>(null);
   const [panel, setPanel] = useState<{ title: string; body: string } | null>(null);
   const [ranking, setRanking] = useState<unknown>(null);
   const [reviewRows, setReviewRows] = useState<unknown[]>([]);
@@ -214,6 +245,38 @@ function Overlay() {
   }, [kind, href]);
 
   useEffect(() => {
+    if (kind !== "product") {
+      document.getElementById("ea-page-actions")?.remove();
+      setActionMount(null);
+      return;
+    }
+    let cancelled = false;
+    const place = () => {
+      const anchor = buyButton() || cartButton() || quantityRow();
+      if (!anchor?.parentElement || cancelled) return;
+      let host = document.getElementById("ea-page-actions");
+      if (!host) {
+        host = document.createElement("div");
+        host.id = "ea-page-actions";
+        host.style.cssText = "display:inline-block;vertical-align:middle;";
+        const shadow = host.attachShadow({ mode: "open" });
+        const mount = document.createElement("div");
+        shadow.appendChild(mount);
+        actionMounts.set(host, mount);
+      }
+      if (host.previousElementSibling !== anchor) anchor.parentElement.insertBefore(host, anchor.nextSibling);
+      const mount = actionMounts.get(host) ?? null;
+      if (mount) setActionMount(mount);
+    };
+    place();
+    const timer = window.setInterval(place, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [kind, href]);
+
+  useEffect(() => {
     if (kind !== "product") return;
     const ids = parseShopeeIds(href);
     if (!ids) return;
@@ -305,6 +368,18 @@ function Overlay() {
     setProduct((current) => (current ? patch(current) : current));
   }
 
+  async function readCommissionCache() {
+    const stored = await chrome.storage.local.get(COMMISSION_CACHE_KEY);
+    const bag = stored[COMMISSION_CACHE_KEY];
+    return bag && typeof bag === "object" ? (bag as Record<string, { at: number; live: LiveCommission }>) : {};
+  }
+
+  async function rememberCommission(itemId: string, row: LiveCommission) {
+    const bag = await readCommissionCache();
+    bag[itemId] = { at: Date.now(), live: row };
+    await chrome.storage.local.set({ [COMMISSION_CACHE_KEY]: bag });
+  }
+
   async function checkLive() {
     const client = clientRef.current;
     if (!client || running) return;
@@ -313,6 +388,20 @@ function Overlay() {
     setRunning(true);
     setCheckLabel("Membuka sesi affiliate…");
     void pingFeature("commission_check");
+    const cache = await readCommissionCache();
+    const now = Date.now();
+    const cached: Record<string, LiveCommission> = {};
+    for (const item of itemsRef.current) {
+      const hit = cache[item.itemId];
+      if (hit && now - hit.at < COMMISSION_CACHE_MS) cached[item.itemId] = hit.live;
+    }
+    if (Object.keys(cached).length) setLive((current) => ({ ...cached, ...current }));
+    const pending = itemsRef.current.filter((item) => !cached[item.itemId]);
+    if (!pending.length && itemsRef.current.length) {
+      setCheckLabel(`Komisi dari cache · ${itemsRef.current.length} produk`);
+      setRunning(false);
+      return;
+    }
     if (kind === "shop" && itemsRef.current[0]) {
       const result = await client.fetchList(itemsRef.current[0].shopId);
       const found = parseCommissionList(result.data);
@@ -326,13 +415,15 @@ function Overlay() {
         for (const item of itemsRef.current) {
           const row = found.get(item.itemId);
           if (!row) continue;
-          next[item.itemId] = {
+          const saved = {
             ratePct: row.ratePct,
             amount: (item.price * row.ratePct) / 100,
             xtraRatePct: null,
             promotedLast7d: row.promotedLast7d,
             freeSample: row.freeSample,
           };
+          next[item.itemId] = saved;
+          void rememberCommission(item.itemId, saved);
         }
         return next;
       });
@@ -340,7 +431,7 @@ function Overlay() {
       setRunning(false);
       return;
     }
-    const batch = itemsRef.current;
+    const batch = pending;
     if (batch.length === 0) {
       setCheckLabel("Belum ada produk");
       setRunning(false);
@@ -360,6 +451,7 @@ function Overlay() {
         if (parsed) {
           hits += 1;
           setLive((current) => ({ ...current, [item.itemId]: parsed }));
+          void rememberCommission(item.itemId, parsed);
         }
         if (index < batch.length - 1) await delay(700);
       }
@@ -723,6 +815,7 @@ function Overlay() {
               commission: commission ? formatMoney(commission.amount, market) : "—",
               rate: commission ? formatRate(commission.ratePct) : "",
               shop: product.shopName,
+              affiliates: commission?.promotedLast7d != null ? `${commission.promotedLast7d} affiliate / 7 hari` : null,
             });
             if (hrefCard) downloadDataUrl(`elevate-${product.itemId}.png`, hrefCard);
           }}
@@ -757,6 +850,41 @@ function Overlay() {
           ranking={reviewRows.length || ranking ? <RankingList data={ranking} reviews={reviewRows} /> : null}
         />
       )}
+      {kind === "product" && actionMount
+        ? createPortal(
+            <PageActions
+              onAnalisa={() => setCardClosed(false)}
+              onVariant={() => void rankHere()}
+              onAi={() => {
+                if (!product) return;
+                void askAi("Analisa AI", "riset_produk", {
+                  name: product.name,
+                  price: product.price,
+                  sold: product.sold,
+                  shopName: product.shopName,
+                });
+              }}
+              onThread={() => {
+                if (!product) return;
+                const commission = commissions[product.itemId];
+                void askAi("Thread Affiliate", "affiliate_thread", {
+                  name: product.name,
+                  price: product.price,
+                  commission: commission?.amount,
+                  tone: settings.tone,
+                });
+              }}
+              onImages={() => {
+                if (!product) return;
+                const urls = [...(product.images ?? []), product.image].filter((url): url is string => Boolean(url));
+                void zipImages(urls, `elevate-${product.itemId}.zip`)
+                  .then((count) => setDetail(`${count} gambar disimpan.`))
+                  .catch((error: unknown) => setDetail(error instanceof Error ? error.message : "Zip gagal."));
+              }}
+            />,
+            actionMount,
+          )
+        : null}
       {showScout && dockMount ? createPortal(scout, dockMount) : null}
       {showScout && !dockMount ? scout : null}
     </>

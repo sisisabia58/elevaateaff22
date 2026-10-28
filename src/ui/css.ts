@@ -27,6 +27,18 @@ export const elevateCss = `
   border-radius: 18px;
   box-shadow: 0 16px 50px rgba(28, 25, 21, 0.16);
 }
+.ea-page-row { display: inline-flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0 8px; vertical-align: middle; pointer-events: auto; }
+.ea-page-btn {
+  border: 1px solid #e6dfd2;
+  background: #fffdf9;
+  color: #1c1915;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+}
+.ea-page-btn:hover { border-color: #0f6e56; color: #0f6e56; }
 .ea-card { width: 336px; right: 16px; bottom: 16px; max-height: calc(100vh - 32px); overflow: auto; }
 .ea-scout { width: 380px; right: 16px; top: 72px; max-height: min(640px, calc(100vh - 96px)); display: flex; flex-direction: column; overflow: auto; }
 .ea-card.embedded, .ea-scout.embedded { position: absolute; }

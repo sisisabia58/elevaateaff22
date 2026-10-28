@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settin
 import { copyText } from "../ui/copy";
 import { OptionsView } from "../ui/OptionsView";
 import { PopupView } from "../ui/PopupView";
+import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { ProfitBoard } from "../ui/ProfitBoard";
 import { RoasCard } from "../ui/RoasCard";
@@ -183,9 +184,18 @@ export function Studio() {
               <p className="muted">Dapur Kecil</p>
               <h2>{FEATURED.name}</h2>
               <p>Rp{FEATURED.price.toLocaleString("id-ID")} · 1.240 terjual · 4,8★</p>
-              <button className="buy" type="button">
-                Beli Sekarang
-              </button>
+              <div>
+                <button className="buy" type="button">
+                  Beli Sekarang
+                </button>
+                <PageActions
+                  onAnalisa={() => setCardOpen(true)}
+                  onVariant={() => setLinkDetail("Peringkat varian membuka ulasan produk.")}
+                  onAi={() => setLinkDetail("Analisa AI butuh login Google tim dan kunci Gemini.")}
+                  onThread={() => setLinkDetail("Thread Affiliate butuh login Google tim dan kunci Gemini.")}
+                  onImages={() => setLinkDetail("Belum ada gambar. Refresh halaman produk.")}
+                />
+              </div>
               {shareUrl && !hideDetail && <img className="ea-share" alt="Kartu bagikan 4:5" src={shareUrl} />}
               {cardOpen && (
                 <ProductCard
