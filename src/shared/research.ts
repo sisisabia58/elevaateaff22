@@ -1,3 +1,4 @@
+import { quantileEdges } from "./analytics";
 import type { ScoutItem } from "./types";
 
 export type ShopSummary = {
@@ -23,20 +24,19 @@ export function shopSummary(items: ScoutItem[]): ShopSummary | null {
 
 export type HistogramBucket = { label: string; min: number; max: number; count: number };
 
-export function priceHistogram(items: ScoutItem[], bucketCount = 5): HistogramBucket[] {
+export function priceHistogram(items: ScoutItem[], bucketCount = 6): HistogramBucket[] {
   if (!items.length) return [];
-  const prices = items.map((item) => item.price);
-  const min = Math.min(...prices);
-  const max = Math.max(...prices);
-  const width = max === min ? 1 : (max - min) / bucketCount;
-  const buckets: HistogramBucket[] = Array.from({ length: bucketCount }, (_, index) => {
-    const start = min + index * width;
-    const end = index === bucketCount - 1 ? max : start + width;
-    return { label: "", min: start, max: end, count: 0 };
-  });
+  const prices = [...items.map((item) => item.price)].sort((left, right) => left - right);
+  const edges = quantileEdges(prices, Math.min(bucketCount, prices.length)) ?? [prices[0], prices[prices.length - 1] + 1];
+  const buckets: HistogramBucket[] = Array.from({ length: edges.length - 1 }, (_, index) => ({
+    label: "",
+    min: edges[index],
+    max: edges[index + 1],
+    count: 0,
+  }));
   for (const price of prices) {
-    const index = Math.min(bucketCount - 1, Math.floor((price - min) / width));
-    buckets[index].count += 1;
+    const index = buckets.findIndex((bucket) => price >= bucket.min && price < bucket.max);
+    buckets[index >= 0 ? index : buckets.length - 1].count += 1;
   }
   return buckets.map((bucket) => ({
     ...bucket,

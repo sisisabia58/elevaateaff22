@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, searchOverview, shopAgeBucket, shopOverview, shopRelation, tallyReviews } from "./analytics";
+import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, quantileEdges, rankingForPeriod, searchOverview, shopAgeBucket, shopOverview, shopRelation, tallyReviews } from "./analytics";
 import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
@@ -194,9 +194,10 @@ describe("product analytics", () => {
       product({ itemId: "p3", price: 20_000, ctime: null }),
     ];
     const price = metricHistogram(rows, NOW, 5, "price");
-    expect(price).toHaveLength(5);
+    expect(price).toHaveLength(3);
     expect(price.reduce((sum, bar) => sum + bar.count, 0)).toBe(3);
     expect(itemBucketIndex(rows[0], price, "price", NOW)).toBe(0);
+    expect(itemBucketIndex(rows[1], price, "price", NOW)).toBe(2);
     const age = metricHistogram(rows, NOW, 5, "age");
     expect(age.reduce((sum, bar) => sum + bar.count, 0)).toBe(2);
     expect(age[0]?.label.endsWith("hr")).toBe(true);
@@ -211,6 +212,16 @@ describe("product analytics", () => {
     expect(bucketMeasure(priced[0], "wishlist")).toBe(7);
     expect(bucketMeasure(priced[0], "totalSold")).toBe(4);
     expect(bucketMeasure(priced[0], "omset30d")).toBe(20_000);
+    const spread = [10_000, 20_000, 30_000, 40_000, 50_000, 60_000].map((price, index) =>
+      product({ itemId: `q${index}`, price }),
+    );
+    expect(metricHistogram(spread, NOW)).toHaveLength(6);
+    const edges = quantileEdges([10, 20, 30, 40, 50, 60], 6);
+    expect(edges).toHaveLength(7);
+    expect(edges?.[0]).toBe(10);
+    expect(edges?.[3]).toBe(35);
+    expect(edges?.[6]).toBe(60);
+    expect(itemBucketIndex(spread[5], metricHistogram(spread, NOW), "price", NOW)).toBe(5);
   });
 
   it("reads variant galleries from tier options, then from model rows", () => {

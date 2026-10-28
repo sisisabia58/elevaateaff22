@@ -231,27 +231,42 @@ export function bucketMeasure(bucket: MetricBucket, metric: HistogramY): number 
 
 const SHOP_AGE_LABELS = ["<3 bln", "3–6 bln", "6 bln–1 thn", "1–2 thn", "2–5 thn", ">5 thn"];
 
+/** SENA histogram edges: quantile positions, then drop edges that are not strictly increasing. */
+export function quantileEdges(sortedValues: number[], binCount: number): number[] | null {
+  if (!sortedValues.length || binCount < 1) return null;
+  const edges: number[] = [];
+  for (let index = 0; index <= binCount; index += 1) {
+    const position = (sortedValues.length - 1) * (index / binCount);
+    const low = Math.floor(position);
+    const high = Math.ceil(position);
+    edges.push(low === high ? sortedValues[low] : sortedValues[low] + (sortedValues[high] - sortedValues[low]) * (position - low));
+  }
+  const deduped: number[] = [];
+  for (const edge of edges) {
+    if (!deduped.length || edge > deduped[deduped.length - 1]) deduped.push(edge);
+  }
+  return deduped.length >= 2 ? deduped : null;
+}
+
+function bucketIndexForValue(value: number, bars: Array<{ min: number; max: number }>): number {
+  const index = bars.findIndex((bar) => value >= bar.min && value < bar.max);
+  return index >= 0 ? index : bars.length - 1;
+}
+
 function numericHistogram(rows: HistogramRow[], bucketCount: number, format: (min: number, max: number) => string): MetricBucket[] {
   if (!rows.length) return [];
-  const min = Math.min(...rows.map((row) => row.value));
-  const max = Math.max(...rows.map((row) => row.value));
-  const width = max === min ? 1 : (max - min) / bucketCount;
-  const buckets = Array.from({ length: bucketCount }, (_, index) => {
-    const start = min + index * width;
-    const end = index === bucketCount - 1 ? max : start + width;
-    return blankBucket(start, end);
-  });
-  for (const row of rows) {
-    const index = Math.min(bucketCount - 1, Math.floor((row.value - min) / width));
-    absorb(buckets[index], row);
-  }
+  const sorted = [...rows].sort((left, right) => left.value - right.value);
+  const values = sorted.map((row) => row.value);
+  const edges = quantileEdges(values, Math.min(bucketCount, values.length)) ?? [values[0], values[values.length - 1] + 1];
+  const buckets = Array.from({ length: edges.length - 1 }, (_, index) => blankBucket(edges[index], edges[index + 1]));
+  for (const row of sorted) absorb(buckets[bucketIndexForValue(row.value, buckets)], row);
   return buckets.map((bucket) => ({ ...bucket, label: format(bucket.min, bucket.max) }));
 }
 
 export function metricHistogram(
   items: ScoutItem[],
   nowMs = Date.now(),
-  bucketCount = 5,
+  bucketCount = 6,
   dimension: HistogramDimension = "price",
   shopCtimes: Record<string, number> = {},
 ): MetricBucket[] {
@@ -297,10 +312,7 @@ export function itemBucketIndex(
   }
   const value = dimension === "price" ? item.price : itemMetrics(item, nowMs).ageDays;
   if (value == null) return null;
-  const min = bars[0].min;
-  const max = bars[bars.length - 1].max;
-  const width = max === min ? 1 : (max - min) / bars.length;
-  return Math.min(bars.length - 1, Math.floor((value - min) / width));
+  return bucketIndexForValue(value, bars);
 }
 
 export function shopRelation(hasFollow: boolean, hasChat: boolean): "Toko sendiri" | "Toko kompetitor" {

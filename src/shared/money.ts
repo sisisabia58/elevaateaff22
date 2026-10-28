@@ -43,6 +43,17 @@ export function formatBigMoney(amount: number, market: Market): string {
   return `${amount < 0 ? "–" : ""}${body}${suffix}`;
 }
 
+/** SENA formatRibuShort: 89rb, 1,2jt, without the currency symbol. */
+export function formatRibuShort(amount: number, market: Market): string {
+  if (!Number.isFinite(amount)) return "-";
+  const comma = market.code === "IDR";
+  const abs = Math.abs(amount);
+  let text = idNumber(abs, 0, comma);
+  if (abs >= 1_000_000) text = idNumber(abs / 1_000_000, 1, comma) + (market.code === "MYR" ? "M" : "jt");
+  else if (abs >= 1_000) text = idNumber(abs / 1_000, 1, comma) + (market.code === "MYR" ? "K" : "rb");
+  return `${amount < 0 ? "–" : ""}${text}`;
+}
+
 /** SENA formatRibuShort with the currency symbol: Rp89rb, Rp1,2jt. */
 export function formatShortMoney(amount: number, market: Market): string {
   if (!Number.isFinite(amount)) return "-";

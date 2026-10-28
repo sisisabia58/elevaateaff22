@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, searchOverview, shopAgeBucket, shopOverview, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
 import { aiFilterLabel, type MarketAiScope } from "../shared/market-brief";
 import { analyticsCsv, downloadText } from "../shared/csv";
-import { formatAgeShort, formatBigMoney, formatMoney, formatRate, formatShortMoney } from "../shared/money";
+import { formatAgeShort, formatBigMoney, formatMoney, formatRate, formatRibuShort, formatShortMoney } from "../shared/money";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 
@@ -168,7 +168,7 @@ export function AnalisaTable({
     if (sample === "tidak" && free !== false) return false;
     return true;
   });
-  const bars = metricHistogram(searched, now, 5, dimension, shopCtimes);
+  const bars = metricHistogram(searched, now, 6, dimension, shopCtimes);
   const maxBar = Math.max(1, ...bars.map((bar) => Math.abs(bucketMeasure(bar, barMetric))));
   const missingShops = new Set(items.filter((item) => (item.shopCtime ?? shopCtimes[item.shopId]) == null).map((item) => item.shopId)).size;
   const ranged =
@@ -198,6 +198,12 @@ export function AnalisaTable({
     return dir === "desc" ? bv - av : av - bv;
   });
   const shopTotal = new Set(ordered.map((item) => item.shopId || item.shopName).filter(Boolean)).size;
+
+  function axisLabel(bar: { label: string; min: number; max: number }): string {
+    if (dimension === "shopAge") return bar.label;
+    if (dimension === "age") return `${formatAgeShort(bar.min, market)}–${formatAgeShort(bar.max, market)}`;
+    return `${formatRibuShort(bar.min, market)}–${formatRibuShort(bar.max, market)}`;
+  }
 
   function sortValue(item: ScoutItem): number | null {
     if (sort === "price") return item.price;
@@ -319,6 +325,7 @@ export function AnalisaTable({
               <div className="ea-bars">
                 {bars.map((bar, index) => {
                   const measure = bucketMeasure(bar, barMetric);
+                  const axis = axisLabel(bar);
                   const shown =
                     barMetric === "trendPct"
                       ? `${measure >= 0 ? "+" : ""}${measure.toFixed(0)}%`
@@ -330,7 +337,7 @@ export function AnalisaTable({
                       key={`${dimension}-${index}`}
                       type="button"
                       className="ea-bar"
-                      title={`${bar.label} · ${shown}`}
+                      title={`${axis} · ${shown}`}
                       aria-pressed={bucket === index}
                       onClick={() => setBucket((current) => (current === index ? null : index))}
                     >
@@ -341,7 +348,7 @@ export function AnalisaTable({
               </div>
               <div className="ea-bar-labels">
                 {bars.map((bar, index) => (
-                  <span key={`${dimension}-label-${index}`}>{bar.label}</span>
+                  <span key={`${dimension}-label-${index}`}>{axisLabel(bar)}</span>
                 ))}
               </div>
             </>

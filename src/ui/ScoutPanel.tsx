@@ -188,8 +188,8 @@ export function ScoutPanel({
           <div className="ea-body">
             <div className="ea-kicker">Sebaran harga</div>
             <div className="ea-bars" aria-hidden="true">
-              {histogram.map((bucket) => (
-                <div key={bucket.label} className="ea-bar" title={`${bucket.label}: ${bucket.count}`}>
+              {histogram.map((bucket, index) => (
+                <div key={`${bucket.min}-${index}`} className="ea-bar" title={`${bucket.label}: ${bucket.count}`}>
                   <span style={{ height: `${Math.max(8, (bucket.count / maxBucket) * 72)}px` }} />
                 </div>
               ))}
