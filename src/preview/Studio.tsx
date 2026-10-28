@@ -15,6 +15,7 @@ import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
 import type { ImportEntry } from "../shared/imports";
 import { readHppFile } from "../shared/hpp-import";
+import { backupFilename, buildDashboardBackup, parseDashboardBackup, rememberLog, type ImportLogEntry } from "../shared/imports";
 import { dateBasisWarning, hppImportMessage, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
@@ -63,6 +64,9 @@ export function Studio() {
   const [profitStores, setProfitStores] = useState<string[] | null>(null);
   const [profitHpp, setProfitHpp] = useState<Record<string, number>>({ SKU1: 15_000, SKU2: 8_000 });
   const [profitClaimed, setProfitClaimed] = useState<string[]>([]);
+  const [importLog, setImportLog] = useState<ImportLogEntry[]>([
+    { ts: Date.UTC(2026, 9, 26, 2, 15), type: "pesanan", filename: "pesanan-okt.xlsx", store: "Dapur Kecil", added: 2, updated: 1 },
+  ]);
   const ledger = useMemo(() => {
     const base = studioLedger();
     const tag = <T extends { store?: string | null }>(rows: T[]) => rows.map((row) => ({ ...row, store: "Dapur Kecil" }));
@@ -642,7 +646,20 @@ export function Studio() {
               onHppFile={async (file) => {
                 const result = await readHppFile(file);
                 setProfitHpp((current) => ({ ...current, ...result.map }));
+                setImportLog((current) => rememberLog(current, { ts: Date.now(), type: "hpp", filename: file.name, store: "—", added: result.imported, updated: 0 }));
                 return hppImportMessage(result);
+              }}
+              importLog={importLog}
+              onExportBackup={() => downloadText(backupFilename(), JSON.stringify(buildDashboardBackup({ hpp: profitHpp, importLog, orders: ledger.orders, finance: ledger.finance, ads: ledger.ads }), null, 2), "application/json")}
+              onRestoreBackup={async (file) => {
+                const backup = parseDashboardBackup(await file.text());
+                setImportLog(backup.importLog);
+                if (backup.hpp) setProfitHpp(backup.hpp);
+                return "Backup dipulihkan.";
+              }}
+              onClearData={() => {
+                setImportLog([]);
+                setProfitHpp({});
               }}
             />
           )}

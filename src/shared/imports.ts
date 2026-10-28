@@ -32,6 +32,88 @@ export function rememberImport(entries: ImportEntry[] | undefined, entry: Import
   return [entry, ...(entries || []).filter((item) => item.type !== entry.type)];
 }
 
+export type ImportLogType = ImportKind | "hpp";
+
+export type ImportLogEntry = {
+  ts: number;
+  type: ImportLogType;
+  filename: string;
+  store: string;
+  added: number;
+  updated: number;
+};
+
+export const IMPORT_TYPE_LABELS: Record<ImportLogType, string> = {
+  pesanan: "Laporan Pesanan (Shopee)",
+  keuangan: "Laporan Keuangan (Shopee)",
+  iklan: "Laporan Iklan (Shopee)",
+  hpp: "Import HPP",
+};
+
+const LOG_CAP = 500;
+
+export function rememberLog(log: ImportLogEntry[] | undefined, entry: ImportLogEntry): ImportLogEntry[] {
+  return [entry, ...(log || [])].slice(0, LOG_CAP);
+}
+
+/** SENA rowsLabel: `+N baru` and `, M update` when that count is non-zero. */
+export function importLogRowsLabel(entry: Pick<ImportLogEntry, "added" | "updated">): string {
+  if (!(entry.added || 0) && !(entry.updated || 0)) return "—";
+  const updated = entry.updated ? `, ${entry.updated} update` : "";
+  return `+${entry.added || 0} baru${updated}`;
+}
+
+export function importLogTime(ts: number): string {
+  return new Date(ts).toLocaleString("id-ID", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export type DashboardBackup = {
+  _backupVersion: 2;
+  _exportedAt: string;
+  data: Record<string, unknown> | null;
+  hpp: Record<string, number> | null;
+  importLog: ImportLogEntry[];
+};
+
+export function backupFilename(now = new Date()): string {
+  return `shopee-dashboard-backup-${now.toISOString().slice(0, 10)}.json`;
+}
+
+export function buildDashboardBackup(books: { hpp: Record<string, number>; importLog?: ImportLogEntry[] } & Record<string, unknown>, now = new Date()): DashboardBackup {
+  const { hpp, importLog, ...data } = books;
+  return {
+    _backupVersion: 2,
+    _exportedAt: now.toISOString(),
+    data,
+    hpp: hpp || null,
+    importLog: importLog || [],
+  };
+}
+
+export function parseDashboardBackup(text: string): DashboardBackup {
+  let backup: unknown;
+  try {
+    backup = JSON.parse(text);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(message);
+  }
+  if (!backup || typeof backup !== "object" || !("data" in backup)) throw new Error("File ini bukan file backup dashboard yang valid.");
+  const record = backup as Partial<DashboardBackup>;
+  return {
+    _backupVersion: 2,
+    _exportedAt: typeof record._exportedAt === "string" ? record._exportedAt : new Date().toISOString(),
+    data: record.data && typeof record.data === "object" ? (record.data as Record<string, unknown>) : null,
+    hpp: record.hpp && typeof record.hpp === "object" ? record.hpp : null,
+    importLog: Array.isArray(record.importLog) ? record.importLog : [],
+  };
+}
+
+export function clearDataConfirm(logCount: number): string {
+  if (!logCount) return "Hapus semua data yang tersimpan?";
+  return `Hapus SEMUA data yang tersimpan (${logCount} riwayat import)? Ini tidak bisa dibatalkan.\n\nSaran: klik "Riwayat & Backup" → "Export Backup" dulu sebelum menghapus, supaya histori bisa dipulihkan nanti kalau perlu.\n\nLanjutkan hapus?`;
+}
+
 export function importStatus(entries: ImportEntry[], now = Date.now()): ImportChip[] {
   return KINDS.map((type) => {
     const entry = entries.find((item) => item.type === type);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore, upsertAds, upsertFinance, upsertOrders } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -299,6 +299,27 @@ describe("shopee exports", () => {
     const replaced = mergeStoreRows(orders, laut.orders, "Toko Laut");
     expect(replaced).toHaveLength(2);
     expect(replaced.filter((row) => row.store === "Toko Laut")).toHaveLength(1);
+    const kept = upsertOrders(orders, [{ ...laut.orders[0], orderNo: "C2", sku: "SKU4" }], "Toko Laut");
+    expect(kept.added).toBe(1);
+    expect(kept.updated).toBe(0);
+    expect(kept.rows.map((row) => row.orderNo).sort()).toEqual(["A1", "C1", "C2"]);
+    const again = upsertOrders(kept.rows, laut.orders, "Toko Laut");
+    expect(again.updated).toBe(1);
+    expect(again.rows).toHaveLength(3);
+    const money = upsertFinance(
+      [{ orderNo: "A1", productPrice: 1, harga: 1, income: 1, fees: 0, store: "Default" }],
+      [{ orderNo: "A1", productPrice: 2, harga: 2, income: 2, fees: 0 }],
+      "Toko Laut",
+    );
+    expect(money).toMatchObject({ added: 0, updated: 1 });
+    expect(money.rows[0].income).toBe(2);
+    const ads = upsertAds(
+      [{ name: "Tumbler", spend: 1, gmv: 1, orders: 1, periodFrom: "2026-10-01", store: "Dapur Kecil" }],
+      [{ name: "Tumbler", spend: 9, gmv: 9, orders: 1, periodFrom: "2026-11-01" }],
+      "Dapur Kecil",
+    );
+    expect(ads.added).toBe(1);
+    expect(ads.rows).toHaveLength(2);
     const finance = [
       { orderNo: "A1", productPrice: 100_000, harga: 100_000, income: 80_000, fees: -20_000, store: "Default" },
       { orderNo: "C1", productPrice: 30_000, harga: 30_000, income: 27_000, fees: -3_000, admin: -3_000, store: "Toko Laut" },

@@ -503,6 +503,15 @@ export const elevateCss = `
 .ea-mini { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 11px; margin-top: 3px; }
 .ea-mini i { display: block; height: 8px; border-radius: 4px; min-width: 2px; }
 .ea-mini b { font-variant-numeric: tabular-nums; }
+.ea-history-bar { display: flex; gap: 8px; margin: 0 0 10px; }
+.ea-history-bar button, #history-panel button { border: 1px solid #e4ddd2; background: #fff; color: #1c1915; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+#history-panel { margin: 0 0 12px; padding: 12px; border: 1px solid #e4ddd2; border-radius: 12px; background: #fff; }
+.ea-history-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ea-history-head > div { display: flex; gap: 8px; flex-wrap: wrap; }
+#history-panel table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 560px; }
+#history-panel th { text-align: left; font-size: 10px; letter-spacing: 0.04em; color: #6d655b; padding: 6px 8px; }
+#history-panel td { padding: 6px 8px; border-top: 1px solid #eee6da; font-size: 11px; }
+#history-panel td.num { text-align: right; white-space: nowrap; }
 .ea-hpp-summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: #fff; border: 1px solid #e4ddd2; }
 .ea-hpp-summary.warn { color: #c2410c; border-color: #fdba74; background: #fff7ed; }
 .ea-hpp-summary.ok { color: #166534; border-color: #86efac; background: #f0fdf4; }

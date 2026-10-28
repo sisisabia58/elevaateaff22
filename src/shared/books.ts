@@ -1,5 +1,5 @@
 import { loadSession } from "./auth";
-import type { ImportEntry } from "./imports";
+import type { ImportEntry, ImportLogEntry } from "./imports";
 import type { AdRow, FinanceRow, OrderRow } from "./reports";
 import { pushBackup } from "./server";
 import type { RoasPreset } from "./presets";
@@ -15,6 +15,7 @@ export type Books = {
   roas: RoasInput;
   presets: Record<string, RoasPreset>;
   imports: ImportEntry[];
+  importLog: ImportLogEntry[];
 };
 
 export const EMPTY_BOOKS: Books = {
@@ -27,6 +28,7 @@ export const EMPTY_BOOKS: Books = {
   roas: EMPTY_ROAS,
   presets: {},
   imports: [],
+  importLog: [],
 };
 
 const DB = "elevate-affiliate";
@@ -74,7 +76,7 @@ export async function loadBooks(): Promise<Books> {
   const key = await ownerKey();
   try {
     const stored = await idbGet(key);
-    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [] };
+    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [], importLog: stored.importLog || [] };
   } catch {
     /* IndexedDB unavailable */
   }
@@ -82,7 +84,7 @@ export async function loadBooks(): Promise<Books> {
     const raw = localStorage.getItem(localKey(key));
     if (!raw) return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
     const parsed = JSON.parse(raw) as Books;
-    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [] };
+    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [], importLog: parsed.importLog || [] };
   } catch {
     return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
   }

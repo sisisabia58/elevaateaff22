@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
-import { importStatus, type ImportEntry } from "../shared/imports";
+import { clearDataConfirm, IMPORT_TYPE_LABELS, importLogRowsLabel, importLogTime, importStatus, type ImportEntry, type ImportLogEntry } from "../shared/imports";
 import { adChartLabel, adGapNote, adSignal, clipAdName, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
@@ -48,6 +48,10 @@ export function ProfitBoard({
   storeFilter = null,
   onStores,
   imports,
+  importLog,
+  onExportBackup,
+  onRestoreBackup,
+  onClearData,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
@@ -69,6 +73,10 @@ export function ProfitBoard({
   storeFilter?: string[] | null;
   onStores?: (filter: string[] | null) => void;
   imports?: ImportEntry[];
+  importLog?: ImportLogEntry[];
+  onExportBackup?: () => void;
+  onRestoreBackup?: (file: File) => Promise<string>;
+  onClearData?: () => void;
 }) {
   const [hppQuery, setHppQuery] = useState("");
   const [hppMissing, setHppMissing] = useState(false);
@@ -77,6 +85,8 @@ export function ProfitBoard({
   const [hideClaimed, setHideClaimed] = useState(false);
   const [copyLabel, setCopyLabel] = useState("Copy No. Pesanan belum diklaim");
   const [hppNote, setHppNote] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyNote, setHistoryNote] = useState<string | null>(null);
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
@@ -84,6 +94,40 @@ export function ProfitBoard({
         <div className="ea-dash-wrap">
           <div className="ea-mark">E</div>
           <h1>Laba</h1>
+          {importLog && (
+            <div className="ea-history-bar">
+              <button type="button" id="tb-history-btn" aria-expanded={historyOpen} onClick={() => setHistoryOpen((open) => !open)}>
+                Riwayat & Backup
+              </button>
+              {onClearData && (
+                <button
+                  type="button"
+                  id="tb-clear-btn"
+                  title="Hapus semua data tersimpan"
+                  onClick={() => {
+                    if (window.confirm(clearDataConfirm(importLog.length))) onClearData();
+                  }}
+                >
+                  Hapus data
+                </button>
+              )}
+            </div>
+          )}
+          {importLog && historyOpen && (
+            <ImportHistory
+              log={importLog}
+              note={historyNote}
+              onExport={onExportBackup}
+              onRestore={onRestoreBackup ? async (file) => {
+                try {
+                  setHistoryNote(await onRestoreBackup(file));
+                } catch (error) {
+                  const message = error instanceof Error ? error.message : String(error);
+                  setHistoryNote(`Gagal restore backup: ${message}`);
+                }
+              } : undefined}
+            />
+          )}
           {imports && <ImportChips entries={imports} />}
           <p className="lede">Omzet, penghasilan, ROAS iklan, dan laba setelah HPP. File ekspor Shopee dibaca di browser ini.</p>
           {!snapshot && (
@@ -366,6 +410,74 @@ export function ProfitBoard({
             />
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ImportHistory({
+  log,
+  note,
+  onExport,
+  onRestore,
+}: {
+  log: ImportLogEntry[];
+  note: string | null;
+  onExport?: () => void;
+  onRestore?: (file: File) => Promise<void>;
+}) {
+  return (
+    <div id="history-panel">
+      <div className="ea-history-head">
+        <strong>Riwayat Import</strong>
+        <div>
+          <button type="button" id="btn-export-backup" onClick={onExport}>Export Backup (.json)</button>
+          <button type="button" id="btn-restore-backup-trigger" onClick={() => document.getElementById("file-restore-backup")?.click()}>
+            Restore dari Backup
+          </button>
+          <input
+            id="file-restore-backup"
+            type="file"
+            accept=".json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (!file || !onRestore) return;
+              if (!window.confirm("Restore backup akan MENGGANTI semua data yang ada sekarang di dashboard ini dengan isi file backup. Lanjutkan?")) return;
+              void onRestore(file);
+            }}
+          />
+        </div>
+      </div>
+      <p className="ea-note">Data cuma tersimpan di browser ini. Export backup secara berkala (misal tiap habis upload bulanan) supaya histori tidak hilang kalau ganti device, clear cache, atau localStorage penuh.</p>
+      {note && <p className="ea-note" id="history-note">{note}</p>}
+      <div className="ea-iklan-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Waktu Import</th>
+              <th>Jenis Laporan</th>
+              <th>Toko</th>
+              <th>Nama File</th>
+              <th>Baris</th>
+            </tr>
+          </thead>
+          <tbody id="import-log-tbody">
+            {log.length === 0 && (
+              <tr><td colSpan={5} className="ea-hpp-empty">Belum ada riwayat import.</td></tr>
+            )}
+            {log.map((entry) => (
+              <tr key={`${entry.ts}-${entry.filename}-${entry.type}`}>
+                <td>{importLogTime(entry.ts)}</td>
+                <td>{IMPORT_TYPE_LABELS[entry.type] || entry.type}</td>
+                <td><span className="ea-hpp-sku">{entry.store || "Default"}</span></td>
+                <td className="ea-product-name" title={entry.filename}>{entry.filename}</td>
+                <td className="num">{importLogRowsLabel(entry)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

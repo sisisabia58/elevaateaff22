@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import * as XLSX from "xlsx";
 import { loadSession } from "../shared/auth";
-import { loadBooks, saveBooks, type Books } from "../shared/books";
-import { rememberImport } from "../shared/imports";
+import { EMPTY_BOOKS, loadBooks, saveBooks, type Books } from "../shared/books";
 import { downloadText } from "../shared/csv";
 import { readHppFile } from "../shared/hpp-import";
-import { dateBasisWarning, hppImportFailure, hppImportMessage, hppLines, listPeriods, listStores, mergeStoreRows, parseCsv, parseExportGrid, peekStoreName, rowsForStores, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { backupFilename, buildDashboardBackup, parseDashboardBackup, rememberImport, rememberLog } from "../shared/imports";
+import { dateBasisWarning, hppImportFailure, hppImportMessage, hppLines, listPeriods, listStores, parseCsv, parseExportGrid, peekStoreName, rowsForStores, snapshot, upsertAds, upsertFinance, upsertOrders, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
 
 const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat,Waktu Pesanan Dikonfirmasi,Waktu Pesanan Selesai
@@ -94,15 +94,20 @@ function DashboardApp() {
         return;
       }
       if (!books) return;
-      const store = table.store || parsed.store;
+      const store = table.store || parsed.store || "Default";
+      const orders = parsed.kind === "pesanan" ? upsertOrders(books.orders, parsed.orders, store) : null;
+      const finance = parsed.kind === "keuangan" ? upsertFinance(books.finance, parsed.finance, store) : null;
+      const ads = parsed.kind === "iklan" ? upsertAds(books.ads, parsed.ads, store) : null;
+      const stats = orders || finance || ads || { added: 0, updated: 0 };
       const next: Books = {
         ...books,
-        orders: parsed.kind === "pesanan" ? mergeStoreRows(books.orders, parsed.orders, store) : books.orders,
-        finance: parsed.kind === "keuangan" ? mergeStoreRows(books.finance, parsed.finance, store) : books.finance,
-        ads: parsed.kind === "iklan" ? mergeStoreRows(books.ads, parsed.ads, store) : books.ads,
+        orders: orders ? orders.rows : books.orders,
+        finance: finance ? finance.rows : books.finance,
+        ads: ads ? ads.rows : books.ads,
         imports: rememberImport(books.imports, { type: parsed.kind, filename: file.name, ts: Date.now() }),
+        importLog: rememberLog(books.importLog, { ts: Date.now(), type: parsed.kind, filename: file.name, store, added: stats.added, updated: stats.updated }),
       };
-      await persist(next, `Ekspor ${parsed.kind} masuk.`);
+      await persist(next, `Ekspor ${parsed.kind} masuk. +${stats.added} baru${stats.updated ? `, ${stats.updated} update` : ""}.`);
     } catch {
       setNote("File tidak bisa dibaca.");
     } finally {
@@ -147,6 +152,11 @@ function DashboardApp() {
                       { type: "keuangan", filename: "contoh-keuangan.csv", ts: now },
                       { type: "iklan", filename: "contoh-iklan.csv", ts: now },
                     ],
+                    importLog: [
+                      { ts: now, type: "iklan", filename: "contoh-iklan.csv", store: "Default", added: ads.length, updated: 0 },
+                      { ts: now, type: "keuangan", filename: "contoh-keuangan.csv", store: "Default", added: finance.length, updated: 0 },
+                      { ts: now, type: "pesanan", filename: "contoh-pesanan.csv", store: "Default", added: orders.length, updated: 0 },
+                    ],
                   }, "Contoh dimuat.");
                 }}
               >
@@ -155,9 +165,9 @@ function DashboardApp() {
               <button
                 className="ea-btn"
                 type="button"
-                onClick={() => downloadText("elevate-laba.json", JSON.stringify(books, null, 2), "application/json")}
+                onClick={() => downloadText(backupFilename(), JSON.stringify(buildDashboardBackup(books), null, 2), "application/json")}
               >
-                Unduh cadangan
+                Export Backup
               </button>
               <label className="ea-btn">
                 Impor HPP
@@ -211,8 +221,36 @@ function DashboardApp() {
         }}
         onHppFile={async (file) => {
           const result = await readHppFile(file);
-          await persist({ ...books, hpp: { ...books.hpp, ...result.map } }, null);
+          await persist({
+            ...books,
+            hpp: { ...books.hpp, ...result.map },
+            importLog: rememberLog(books.importLog, { ts: Date.now(), type: "hpp", filename: file.name, store: "—", added: result.imported, updated: 0 }),
+          }, null);
           return hppImportMessage(result);
+        }}
+        importLog={books.importLog}
+        onExportBackup={() => downloadText(backupFilename(), JSON.stringify(buildDashboardBackup(books), null, 2), "application/json")}
+        onRestoreBackup={async (file) => {
+          const backup = parseDashboardBackup(await file.text());
+          const data = (backup.data || {}) as Partial<Books>;
+          await persist({
+            ...EMPTY_BOOKS,
+            ...data,
+            orders: Array.isArray(data.orders) ? data.orders : [],
+            finance: Array.isArray(data.finance) ? data.finance : [],
+            ads: Array.isArray(data.ads) ? data.ads : [],
+            claimed: data.claimed || [],
+            operasional: data.operasional || 0,
+            roas: { ...EMPTY_BOOKS.roas, ...(data.roas || {}) },
+            presets: data.presets || {},
+            imports: data.imports || [],
+            hpp: backup.hpp || {},
+            importLog: backup.importLog || [],
+          }, null);
+          return "Backup dipulihkan.";
+        }}
+        onClearData={() => {
+          void persist({ ...EMPTY_BOOKS }, null);
         }}
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);

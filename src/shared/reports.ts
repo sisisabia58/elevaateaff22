@@ -710,6 +710,56 @@ export function mergeStoreRows<T extends { store?: string | null }>(existing: T[
   return [...existing.filter((row) => (row.store || "Default") !== store), ...incoming.map((row) => ({ ...row, store }))];
 }
 
+export type UpsertCounts = { added: number; updated: number };
+
+function orderImportKey(row: OrderRow): string {
+  return `${row.orderNo || ""}||${(row.sku || "").trim() || row.name || ""}`;
+}
+
+/** SENA keeps every order key and counts a repeat No. Pesanan + SKU as an update. */
+export function upsertOrders(existing: OrderRow[], incoming: OrderRow[], store: string): { rows: OrderRow[] } & UpsertCounts {
+  const map = new Map(existing.map((row) => [orderImportKey(row), row]));
+  let added = 0;
+  let updated = 0;
+  incoming.forEach((row, index) => {
+    const identity = orderImportKey(row);
+    const key = identity === "||" ? `||${index}` : identity;
+    if (map.has(key)) updated += 1;
+    else added += 1;
+    map.set(key, { ...row, store });
+  });
+  return { rows: [...map.values()], added, updated };
+}
+
+/** SENA finance key is No. Pesanan. A new file updates that order and leaves the others. */
+export function upsertFinance(existing: FinanceRow[], incoming: FinanceRow[], store: string): { rows: FinanceRow[] } & UpsertCounts {
+  const map = new Map(existing.map((row, index) => [row.orderNo || `row-${index}`, row]));
+  let added = 0;
+  let updated = 0;
+  incoming.forEach((row, index) => {
+    const key = row.orderNo || `row-${index}`;
+    if (map.has(key)) updated += 1;
+    else added += 1;
+    map.set(key, { ...row, store });
+  });
+  return { rows: [...map.values()], added, updated };
+}
+
+/** SENA ad key is name + store + period start, so a second month does not erase the first. */
+export function upsertAds(existing: AdRow[], incoming: AdRow[], store: string): { rows: AdRow[] } & UpsertCounts {
+  const keyOf = (row: AdRow, rowStore: string) => `${row.name || ""}||${rowStore || "Default"}||${row.periodFrom || "unknown"}`;
+  const map = new Map(existing.map((row) => [keyOf(row, row.store || "Default"), row]));
+  let added = 0;
+  let updated = 0;
+  for (const row of incoming) {
+    const key = keyOf(row, store);
+    if (map.has(key)) updated += 1;
+    else added += 1;
+    map.set(key, { ...row, store });
+  }
+  return { rows: [...map.values()], added, updated };
+}
+
 function inWindow(date: string | null | undefined, window: ProfitWindow | null): boolean {
   if (!window) return true;
   return Boolean(date && date >= window.from && date <= window.to);
