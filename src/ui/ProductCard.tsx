@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { localThread, THREAD_ANGLES, type Caption, type ThreadAngle } from "../shared/captions";
+import { localThread, THREAD_ANGLES, type AiPanel, type Caption, type ThreadAngle } from "../shared/captions";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
@@ -41,7 +41,7 @@ export function ProductCard({
   onSummarize?: () => void;
   onThread?: (angle: ThreadAngle) => void;
   onRank?: () => void;
-  panel?: { title: string; body: string } | null;
+  panel?: AiPanel | null;
   ranking?: ReactNode;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
@@ -153,11 +153,34 @@ export function ProductCard({
                 </div>
               )}
               {panel && (
-                <div>
+                <div className="ea-ai-panel">
                   <div className="ea-kicker" style={{ marginTop: 10 }}>
                     {panel.title}
                   </div>
-                  <div className="ea-panel-text">{panel.body}</div>
+                  {panel.owner ? <span className="ea-chip">{panel.owner}</span> : null}
+                  {panel.parts && panel.parts.length > 0 ? (
+                    panel.parts.map((part, index) => (
+                      <div key={`${index}-${part.slice(0, 24)}`} className="ea-part">
+                        <div className="ea-part-head">
+                          <span>Part {index + 1}</span>
+                          <button
+                            className="ea-btn"
+                            type="button"
+                            onClick={() => {
+                              void onCopyCaption(part);
+                              flash(`Part ${index + 1} disalin`);
+                            }}
+                          >
+                            Salin
+                          </button>
+                        </div>
+                        <p>{part}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="ea-panel-text">{panel.body}</div>
+                  )}
+                  {panel.ai ? <p className="ea-note">Dibuat otomatis oleh AI, selalu baca ulang dan sesuaikan sebelum diposting.</p> : null}
                 </div>
               )}
               {ranking}

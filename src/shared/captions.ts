@@ -1,6 +1,80 @@
 import { formatCount, formatMoney } from "./money";
 import type { Market, ScoutItem, Tone } from "./types";
 
+export const THREAD_PART_DELIM = "===PART===";
+
+const BUY_NOW_RE = /^(beli|buy now)\b/i;
+const ADD_TO_CART_RE = /^(masukkan keranjang|add to cart|tambah dalam troli)$/i;
+
+export type AiPanel = {
+  title: string;
+  body: string;
+  parts?: string[];
+  owner?: "Toko Anda" | null;
+  ai?: boolean;
+};
+
+export type AiItemInfo = {
+  name: string | null;
+  price: number | null;
+  totalSold: number | null;
+  sold30d: number | null;
+  stock: number | null;
+  wishlist: number | null;
+  ratingStar: number | null;
+  ratingCount: number | null;
+  models: Array<{ name: string; price: number | null }>;
+  shopName: string | null;
+  ctime: number | null;
+  image: string | null;
+  images: string[];
+};
+
+export function parseThreadParts(text: string): string[] {
+  return String(text || "")
+    .split(new RegExp(`\\n?\\s*${THREAD_PART_DELIM}\\s*\\n?`, "g"))
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+export function hasBuyNow(labels: string[]): boolean {
+  return labels.some((label) => BUY_NOW_RE.test(label.trim()));
+}
+
+export function hasAddToCart(labels: string[]): boolean {
+  return labels.some((label) => ADD_TO_CART_RE.test(label.trim()));
+}
+
+export function isOwnShop(labels: string[]): boolean {
+  return !hasBuyNow(labels) && !hasAddToCart(labels);
+}
+
+export function buttonLabels(root: ParentNode): string[] {
+  return [...root.querySelectorAll("button")].map((button) => (button.textContent || "").trim());
+}
+
+export function aiItemInfo(item: ScoutItem): AiItemInfo {
+  return {
+    name: item.name || null,
+    price: item.price,
+    totalSold: item.sold,
+    sold30d: item.monthlySold ?? null,
+    stock: item.stock ?? null,
+    wishlist: item.wishlist ?? null,
+    ratingStar: item.rating,
+    ratingCount: item.ratingCount ?? null,
+    models: (item.models ?? []).map((model) => ({ name: model.name, price: null })),
+    shopName: item.shopName,
+    ctime: item.ctime ?? null,
+    image: item.image,
+    images: item.images ?? [],
+  };
+}
+
+export function reviewFeature(labels: string[]): "own_shop_review" | "competitor_review" {
+  return isOwnShop(labels) ? "own_shop_review" : "competitor_review";
+}
+
 export type Caption = { id: Tone; label: string; text: string };
 
 const LABELS: Record<Tone, string> = {

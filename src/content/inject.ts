@@ -252,7 +252,7 @@ async function fetchReviews(shopId: string, itemId: string) {
   const reviews: unknown[] = [];
   try {
     let offset = 0;
-    while (reviews.length < 200) {
+    while (reviews.length < 1000) {
       const response = await originalFetch(
         `${location.origin}/api/v2/item/get_ratings?shopid=${encodeURIComponent(shopId)}&itemid=${encodeURIComponent(itemId)}&limit=20&offset=${offset}&type=0&filter=0`,
         { credentials: "include", headers: { Accept: "application/json" } },

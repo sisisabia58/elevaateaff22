@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { pageAnalytics, shopRelation } from "../shared/analytics";
-import { buildCaptions } from "../shared/captions";
+import { aiItemInfo, buildCaptions, buttonLabels, isOwnShop, parseThreadParts, reviewFeature, type AiPanel, type ThreadAngle } from "../shared/captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { zipImages } from "../shared/images";
@@ -113,7 +113,7 @@ function Overlay() {
   const [running, setRunning] = useState(false);
   const [dockMount, setDockMount] = useState<HTMLElement | null>(null);
   const [actionMount, setActionMount] = useState<HTMLElement | null>(null);
-  const [panel, setPanel] = useState<{ title: string; body: string } | null>(null);
+  const [panel, setPanel] = useState<AiPanel | null>(null);
   const [ranking, setRanking] = useState<unknown>(null);
   const [reviewRows, setReviewRows] = useState<unknown[]>([]);
   const [shopCtimes, setShopCtimes] = useState<Record<string, number>>({});
@@ -325,7 +325,7 @@ function Overlay() {
           return true;
         }
         askPage({ type: "FETCH_REVIEWS", shopId: current.shopId, itemId: current.itemId });
-        void waitPage("REVIEWS", current.itemId, 20000).then((page) => {
+        void waitPage("REVIEWS", current.itemId, 90000).then((page) => {
           if (!page) sendResponse({ ok: false, error: "Ulasan tidak masuk." });
           else if (page.error && !(page.reviews || []).length) sendResponse({ ok: false, error: page.error });
           else sendResponse({ ok: true, reviews: page.reviews ?? [], error: page.error });
@@ -815,12 +815,63 @@ function Overlay() {
     setDetail(offer ? "Link penawaran affiliate disalin." : "Sesi Affiliate belum aktif. Yang disalin adalah link produk biasa.");
   }
 
-  async function askAi(title: string, feature: string, payload: Record<string, unknown>) {
+  async function loadReviews(item: ScoutItem) {
+    askPage({ type: "FETCH_REVIEWS", shopId: item.shopId, itemId: item.itemId });
+    const message = await waitPage("REVIEWS", item.itemId, 90000);
+    if (!message) return { reviews: [] as unknown[], error: "Ulasan tidak masuk." };
+    return { reviews: message.reviews ?? [], error: message.error };
+  }
+
+  async function askAi(title: string, feature: string, payload: Record<string, unknown>, owner: AiPanel["owner"] = null) {
     if (!settings) return;
-    setPanel({ title, body: "Menghubungi Gemini…" });
+    setPanel({ title, body: "Menghubungi Gemini…", owner });
     void pingFeature(feature);
     const result = await callAiProxy(feature, payload, settings.geminiApiKey, settings.geminiModel);
-    setPanel({ title, body: result.ok ? result.text : result.error });
+    setPanel({ title, body: result.ok ? result.text : result.error, owner, ai: result.ok });
+  }
+
+  async function analyseProduct() {
+    if (!product || !settings) return;
+    const labels = buttonLabels(document);
+    const own = isOwnShop(labels);
+    const owner = own ? "Toko Anda" : null;
+    setCardClosed(false);
+    setPanel({ title: "Analisa AI", body: "Membaca ulasan…", owner });
+    const loaded = await loadReviews(product);
+    if (loaded.error && !loaded.reviews.length) {
+      setPanel({ title: "Analisa AI", body: loaded.error, owner });
+      return;
+    }
+    await askAi(owner ? "Analisa toko sendiri" : "Analisa kompetitor", reviewFeature(labels), { itemInfo: aiItemInfo(product), reviews: loaded.reviews }, owner);
+  }
+
+  async function generateThread(angle: ThreadAngle) {
+    if (!product || !settings) return;
+    setCardClosed(false);
+    setPanel({ title: "Thread Affiliate", body: "Membaca ulasan…" });
+    const loaded = await loadReviews(product);
+    if (loaded.error && !loaded.reviews.length) {
+      setPanel({ title: "Thread Affiliate", body: loaded.error });
+      return;
+    }
+    setPanel({ title: "Thread Affiliate", body: "Nulis thread..." });
+    void pingFeature("affiliate_thread");
+    const result = await callAiProxy(
+      "affiliate_thread",
+      { itemInfo: aiItemInfo(product), reviews: loaded.reviews, angleKey: angle },
+      settings.geminiApiKey,
+      settings.geminiModel,
+    );
+    if (!result.ok) {
+      setPanel({ title: "Thread Affiliate", body: result.error });
+      return;
+    }
+    const parts = parseThreadParts(result.text);
+    if (!parts.length) {
+      setPanel({ title: "Thread Affiliate", body: "AI gak ngembaliin thread yang valid. Coba generate ulang." });
+      return;
+    }
+    setPanel({ title: "Thread Affiliate", body: "", parts, ai: true });
   }
 
   async function rankHere() {
@@ -829,7 +880,7 @@ function Overlay() {
     setRanking(null);
     void pingFeature("variant_ranking");
     askPage({ type: "FETCH_REVIEWS", shopId: product.shopId, itemId: product.itemId });
-    const message = await waitPage("REVIEWS", product.itemId, 20000);
+    const message = await waitPage("REVIEWS", product.itemId, 90000);
     if (!message || (message.error && !(message.reviews || []).length)) {
       setPanel({ title: "Peringkat varian", body: message?.error || "Ulasan tidak masuk." });
       return;
@@ -923,26 +974,8 @@ function Overlay() {
             if (!product) return;
             saveProductImages(product);
           }}
-          onSummarize={() => {
-            if (!product) return;
-            void askAi("Ringkas produk", "riset_produk", {
-              name: product.name,
-              price: product.price,
-              sold: product.sold,
-              shopName: product.shopName,
-            });
-          }}
-          onThread={(angle) => {
-            if (!product) return;
-            const commission = commissions[product.itemId];
-            void askAi("Thread Affiliate", "affiliate_thread", {
-              name: product.name,
-              price: product.price,
-              commission: commission?.amount,
-              tone: settings.tone,
-              angle,
-            });
-          }}
+          onSummarize={() => void analyseProduct()}
+          onThread={(angle) => void generateThread(angle)}
           onRank={() => void rankHere()}
           panel={panel}
           ranking={reviewRows.length || ranking ? <RankingList data={ranking} reviews={reviewRows} /> : null}
@@ -953,27 +986,8 @@ function Overlay() {
             <PageActions
               onAnalisa={() => setCardClosed(false)}
               onVariant={() => void rankHere()}
-              onAi={() => {
-                if (!product) return;
-                void askAi("Analisa AI", "riset_produk", {
-                  name: product.name,
-                  price: product.price,
-                  sold: product.sold,
-                  shopName: product.shopName,
-                });
-              }}
-              onThread={() => {
-                if (!product) return;
-                setCardClosed(false);
-                const commission = commissions[product.itemId];
-                void askAi("Thread Affiliate", "affiliate_thread", {
-                  name: product.name,
-                  price: product.price,
-                  commission: commission?.amount,
-                  tone: settings.tone,
-                  angle: "problem_solution",
-                });
-              }}
+              onAi={() => void analyseProduct()}
+              onThread={() => void generateThread("problem_solution")}
               onImages={() => {
                 if (!product) return;
                 saveProductImages(product);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { buildCaptions } from "../shared/captions";
+import { buildCaptions, buttonLabels, isOwnShop, parseThreadParts, THREAD_ANGLES, type AiPanel, type ThreadAngle } from "../shared/captions";
 import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
@@ -59,6 +59,8 @@ export function Studio() {
   const [linkDetail, setLinkDetail] = useState<string | undefined>(undefined);
   const [popupNote, setPopupNote] = useState<string | null>(null);
   const [cardOpen, setCardOpen] = useState(true);
+  const [ownShopPage, setOwnShopPage] = useState(false);
+  const [aiPanel, setAiPanel] = useState<AiPanel | null>(null);
   const [scoutOpen, setScoutOpen] = useState(true);
   const market = marketFromHost("shopee.co.id");
 
@@ -111,6 +113,40 @@ export function Studio() {
     await wait(500);
     setLive(next);
     setCheckLabel("Komisi asli · 4 produk");
+  }
+
+  function pageLabels() {
+    const root = document.querySelector(".page");
+    return root ? buttonLabels(root) : [];
+  }
+
+  function analysePreview() {
+    const own = isOwnShop(pageLabels());
+    setCardOpen(true);
+    setAiPanel({
+      title: own ? "Analisa toko sendiri" : "Analisa kompetitor",
+      body: own
+        ? "Ulasan halaman ini dikirim sebagai own_shop_review."
+        : "Ulasan halaman ini dikirim sebagai competitor_review.",
+      owner: own ? "Toko Anda" : null,
+      ai: true,
+    });
+  }
+
+  function threadPreview(angle: ThreadAngle) {
+    const label = THREAD_ANGLES.find((entry) => entry.key === angle)?.label ?? angle;
+    setCardOpen(true);
+    setAiPanel({ title: "Thread Affiliate", body: "Nulis thread..." });
+    window.setTimeout(() => {
+      setAiPanel({
+        title: "Thread Affiliate",
+        body: "",
+        parts: parseThreadParts(
+          `${label}: ${FEATURED.name} menyelesaikan keraguan sebelum checkout.\n===PART===\nLanjutan ${label}. Harga dan ulasan di halaman jadi bahan ceritanya.`,
+        ),
+        ai: true,
+      });
+    }, 200);
   }
 
   const featuredCommission = commissions[FEATURED.itemId];
@@ -222,14 +258,19 @@ export function Studio() {
               <h2>{FEATURED.name}</h2>
               <p>Rp{FEATURED.price.toLocaleString("id-ID")} · 1.240 terjual · 4,8★</p>
               <div>
-                <button className="buy" type="button">
-                  Beli Sekarang
+                {!ownShopPage && (
+                  <button className="buy" type="button">
+                    Beli Sekarang
+                  </button>
+                )}
+                <button type="button" onClick={() => setOwnShopPage((value) => !value)}>
+                  {ownShopPage ? "Tampilkan tombol beli" : "Simulasi toko sendiri"}
                 </button>
                 <PageActions
                   onAnalisa={() => setCardOpen(true)}
                   onVariant={() => setLinkDetail("Peringkat varian membuka ulasan produk.")}
-                  onAi={() => setLinkDetail("Analisa AI butuh login Google tim dan kunci Gemini.")}
-                  onThread={() => setLinkDetail("Thread Affiliate butuh login Google tim dan kunci Gemini.")}
+                  onAi={() => analysePreview()}
+                  onThread={() => threadPreview("problem_solution")}
                   onImages={() => setLinkDetail("Belum ada gambar. Refresh halaman produk.")}
                 />
               </div>
@@ -257,6 +298,9 @@ export function Studio() {
                   embedded
                   onShare={() => shareUrl && downloadDataUrl("elevate-share.png", shareUrl)}
                   onZip={() => setLinkDetail("Belum ada gambar. Refresh halaman produk.")}
+                  onSummarize={() => analysePreview()}
+                  onThread={(angle) => threadPreview(angle)}
+                  panel={aiPanel}
                 />
               )}
             </div>

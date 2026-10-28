@@ -165,6 +165,10 @@ export const elevateCss = `
 
 .ea-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 .ea-panel-text { white-space: pre-wrap; background: #f7f3ec; border-radius: 12px; padding: 10px; max-height: 180px; overflow: auto; font-size: 13px; margin-top: 8px; }
+.ea-ai-panel .ea-chip { display: inline-flex; margin-top: 8px; }
+.ea-part { margin-top: 8px; background: #fff; border: 1px solid #eee6da; border-radius: 12px; padding: 10px; }
+.ea-part-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+.ea-part p { margin: 8px 0 0; font-size: 13px; white-space: pre-wrap; }
 .ea-rank { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-top: 8px; font-size: 13px; }
 .ea-rank i { grid-column: 1 / -1; display: block; height: 6px; background: #0f6e56; border-radius: 99px; }
 .ea-seller { width: 420px; top: 16px; bottom: auto; }

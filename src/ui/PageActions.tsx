@@ -16,7 +16,7 @@ export function PageActions({
   const actions = [
     ["Analisa", "Angka 30 hari, omzet, dan trend", onAnalisa],
     ["Analisa Varian", "Peringkat varian dari ulasan", onVariant],
-    ["Analisa AI", "Ringkas produk", onAi],
+    ["Analisa AI", "Toko sendiri atau kompetitor, dari ulasan", onAi],
     ["Thread Affiliate", "5 angle untuk promosi", onThread],
     ["Download Gambar", "Simpan galeri produk", onImages],
   ] as const;

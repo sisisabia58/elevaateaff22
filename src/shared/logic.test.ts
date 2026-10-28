@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCaptions, localThread } from "./captions";
+import { aiItemInfo, buildCaptions, hasAddToCart, hasBuyNow, isOwnShop, localThread, parseThreadParts, reviewFeature } from "./captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "./commission";
 import { estimateCommission, formatMoney, formatRate, marketFromHost, shopeeRawToMajor } from "./money";
 import { normalizeSettings } from "./settings";
@@ -126,6 +126,23 @@ describe("captions and settings", () => {
     const thread = localThread(item, marketFromHost("shopee.co.id"), "listicle");
     expect(thread).toContain(item.name);
     expect(thread).toContain("Rp89.000");
+  });
+
+  it("splits a thread on the part marker and tells own shop from a competitor page", () => {
+    expect(parseThreadParts("Bagian satu\n===PART===\nBagian dua")).toEqual(["Bagian satu", "Bagian dua"]);
+    expect(parseThreadParts("  ")).toEqual([]);
+    expect(hasBuyNow(["Beli Sekarang", "Salin caption"])).toBe(true);
+    expect(hasAddToCart(["Masukkan Keranjang"])).toBe(true);
+    expect(isOwnShop(["Analisa AI", "Thread Affiliate"])).toBe(true);
+    expect(reviewFeature(["Beli Sekarang"])).toBe("competitor_review");
+    expect(reviewFeature(["Simpan"])).toBe("own_shop_review");
+    expect(aiItemInfo({ ...item, models: [{ name: "Hitam", images: [] }], monthlySold: 80 })).toMatchObject({
+      name: item.name,
+      price: item.price,
+      totalSold: item.sold,
+      sold30d: 80,
+      models: [{ name: "Hitam", price: null }],
+    });
   });
 
   it("clamps a bad saved rate", () => {
