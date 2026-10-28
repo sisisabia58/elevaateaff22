@@ -4,6 +4,7 @@ import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
 import { stampAdTable } from "../shared/ad-badges";
+import { stampAdColumns } from "../shared/ad-columns";
 import { stampPerfMetrics } from "../shared/perf-metrics";
 import { classifyPortfolio } from "../shared/funnel";
 import { stampPerfCards } from "../shared/perf-badges";
@@ -66,6 +67,7 @@ export function Studio() {
     const root = document.querySelector(".ad-demo");
     if (root) {
       stampAdTable(root, presets);
+      stampAdColumns(root, presets);
       stampPerfMetrics(root, presets, roas.ppnTopupPersen);
     }
   }, [scene, roas, presets]);
@@ -292,7 +294,7 @@ export function Studio() {
           {scene === "iklan" && (
             <div className="page ad-demo">
               <h2>Iklan Shopee</h2>
-              <p className="muted">Badge di tabel dan kartu metrik memakai HPP kalkulator dan PPN topup 11%.</p>
+              <p className="muted">Badge di tabel, kolom iklan, dan kartu metrik memakai preset produk. Biaya iklan aktual sudah termasuk PPN topup.</p>
               <div className="line-metrics" data-testid="line-metrics">
                 {[
                   ["Iklan Dilihat", "10.000"],
@@ -353,6 +355,30 @@ export function Studio() {
                   </tr>
                 </tbody>
               </table>
+              <div className="ads-columns" data-testid="ads-columns">
+                {["Produk", "Penjualan", "Produk Terjual", "Konversi", "Biaya Iklan", "ROAS"].map((label) => (
+                  <div key={label} className="title-label">
+                    {label}
+                  </div>
+                ))}
+                {[
+                  ["Tumbler Stainless 600ml Tutup Sedotan", "/product/manual/1001", "Rp890.000", "10", "8", "Rp50.000", "16,00"],
+                  ["Talenan Kayu Jati Tebal untuk Dapur", "", "Rp154.000", "2", "2", "Rp80.000", "1,50"],
+                  ["Gelas Plastik Transparan 500ml Isi 6", "", "Rp50.000", "1", "1", "Rp10.000", "5,00"],
+                ].map(([title, href, sales, sold, orders, ads, roasValue]) => (
+                  <div key={title} style={{ display: "contents" }}>
+                    <div className="info-container">
+                      {href ? <a href={href}> </a> : null}
+                      <div className="ellipsis-content">{title}</div>
+                    </div>
+                    {[sales, sold, orders, ads, roasValue].map((value, index) => (
+                      <div key={`${title}-${index}`} className="ads-num">
+                        <div className="report-format-number">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
               <RoasCard
                 value={roas}
                 onChange={setRoas}

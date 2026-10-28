@@ -61,6 +61,10 @@ button, input { font: inherit; }
 .perf-demo .product-item__info { border: 1px solid #eee6da; border-radius: 12px; padding: 10px; background: #fff; display: flex; flex-direction: column; gap: 2px; }
 .perf-demo .product-item__info span { color: #6d655b; font-size: 12px; }
 .ad-demo th, .ad-demo td { border-bottom: 1px solid #eee6da; text-align: left; padding: 8px; vertical-align: top; }
+.ads-columns { display: grid; grid-template-columns: 220px repeat(5, 96px); column-gap: 24px; row-gap: 28px; align-items: center; overflow-x: auto; margin: 8px 0 18px; background: #fff; border: 1px solid #eee6da; border-radius: 12px; padding: 12px; }
+.ads-columns .title-label { color: #6d655b; font-size: 12px; font-weight: 650; width: 100%; }
+.ads-columns .ellipsis-content, .ads-columns .report-format-number { width: 100%; font-size: 13px; }
+.ads-columns .info-container a { display: none; }
 .page { padding: 22px; }
 .page h2 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; }
 .muted { color: #6d655b; }

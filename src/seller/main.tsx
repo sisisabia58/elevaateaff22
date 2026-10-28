@@ -6,6 +6,7 @@ import { formatMoney, marketFromHost } from "../shared/money";
 import { classifyPortfolio, funnelBrief, mergeServerClass } from "../shared/funnel";
 import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } from "../shared/research";
 import { stampAdTable } from "../shared/ad-badges";
+import { stampAdColumns } from "../shared/ad-columns";
 import { stampPerfMetrics } from "../shared/perf-metrics";
 import { stampPerfCards } from "../shared/perf-badges";
 import type { RoasPreset } from "../shared/presets";
@@ -163,10 +164,11 @@ function SellerApp() {
     const look = () => {
       const presets = books.presets || {};
       const stamped = stampAdTable(document, presets);
+      const columns = stampAdColumns(document, presets);
       const strip = stampPerfMetrics(document, presets, books.roas.ppnTopupPersen ?? 11);
       const named = Object.keys(presets).length;
       setTableNote(
-        !stamped && !strip
+        !stamped && !columns && !strip
           ? "Tabel iklan belum ketemu di halaman ini."
           : named
             ? "Laba per baris memakai preset yang nama atau ID produknya cocok. Biaya iklan aktual sudah termasuk PPN 11%."
