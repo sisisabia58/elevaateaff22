@@ -122,6 +122,31 @@ function monthlySoldCount(item: Record<string, unknown>, soldInfo: Record<string
   return { count: null, label };
 }
 
+function lifetimeSold(item: Record<string, unknown>, soldInfo: Record<string, unknown>, review: Record<string, unknown> | null): number | null {
+  return (
+    soldCount(item, soldInfo) ??
+    (review
+      ? finiteNumber(review.historical_sold) ??
+        finiteNumber(review.global_sold) ??
+        parseApproxSoldText(text(review.historical_sold_text) ?? text(review.sold_count_display))
+      : null)
+  );
+}
+
+function monthlyFromReview(
+  item: Record<string, unknown>,
+  soldInfo: Record<string, unknown>,
+  review: Record<string, unknown> | null,
+): { count: number | null; label: string | null } {
+  const monthly = monthlySoldCount(item, soldInfo);
+  if (monthly.count !== null || !review) return monthly;
+  const label = text(review.monthly_sold_text);
+  const recent = finiteNumber(review.monthly_sold) ?? finiteNumber(review.sold) ?? parseApproxSoldText(label);
+  const lifetime = lifetimeSold(item, soldInfo, review);
+  if (recent !== null && (lifetime === null || recent < lifetime)) return { count: recent, label };
+  return monthly;
+}
+
 function ratingCountOf(bag: Record<string, unknown> | null): number | null {
   const raw = bag?.rating_count;
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
@@ -157,14 +182,24 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
   const itemId = item.itemid ?? item.item_id ?? row.itemid;
   const shopId = item.shopid ?? item.shop_id ?? row.shopid ?? fallbackShopId;
   if (itemId == null || shopId == null) return null;
+  const review = asRecord(row.product_review) ?? asRecord(item.product_review) ?? asRecord(nested?.product_review);
+  const priceInfo = asRecord(row.product_price) ?? asRecord(item.product_price) ?? asRecord(nested?.product_price);
   const rawPrice =
-    priceBag.applied_product_promo_price ?? priceBag.price ?? item.price ?? item.price_min ?? row.price;
+    priceBag.applied_product_promo_price ??
+    priceBag.price ??
+    item.price ??
+    item.price_min ??
+    row.price ??
+    priceInfo?.price ??
+    priceInfo?.price_min;
   const price = typeof rawPrice === "number" ? shopeeRawToMajor(rawPrice) : null;
   if (price === null) return null;
   const name = text(displayed?.name) ?? text(item.name) ?? text(item.title) ?? text(row.name);
   if (!name) return null;
   const ratingBag = asRecord(item.item_rating) ?? asRecord(row.item_rating);
-  const rating = typeof ratingBag?.rating_star === "number" ? ratingBag.rating_star : null;
+  const rating =
+    (typeof ratingBag?.rating_star === "number" ? ratingBag.rating_star : null) ??
+    (typeof review?.rating_star === "number" ? review.rating_star : null);
   const shopData = asRecord(item.shop_data) ?? asRecord(row.shop_data);
   const displayedImages = Array.isArray(displayed?.images) ? displayed.images[0] : null;
   const itemImages = Array.isArray(item.images) ? item.images[0] : null;
@@ -175,15 +210,15 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
   const adKeyword = text(row.ads_keyword) ?? text(item.ads_keyword) ?? text(matched);
   const adMode = row.match_type ?? item.match_type ?? row.campaignid ?? item.campaignid;
   const isAd = Boolean(row.adsid || item.adsid || row.ad_id || text(icon?.ads_text) || tracked?.is_ads || adKeyword);
-  const monthly = monthlySoldCount(item, soldBag);
-  const stock = finiteNumber(item.stock) ?? finiteNumber(row.stock);
+  const monthly = monthlyFromReview(item, soldBag, review);
+  const stock = finiteNumber(item.stock) ?? finiteNumber(row.stock) ?? finiteNumber(review?.stock);
   const soldOutFlag = item.is_sold_out ?? row.is_sold_out ?? item.sold_out ?? row.sold_out;
   return {
     itemId: String(itemId),
     shopId: String(shopId),
     name,
     price,
-    sold: soldCount(item, soldBag),
+    sold: lifetimeSold(item, soldBag, review),
     rating,
     image,
     shopName: text(shopData?.shop_name) ?? text(item.shop_name) ?? text(row.shop_name),
@@ -196,9 +231,9 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
       text(soldBag.historical_sold_count_text) ??
       text(soldBag.local_historical_sold_count_text) ??
       text(item.historical_sold_text),
-    ctime: finiteNumber(item.ctime) ?? finiteNumber(row.ctime),
-    ratingCount: ratingCountOf(ratingBag),
-    wishlist: finiteNumber(item.liked_count) ?? finiteNumber(row.liked_count) ?? finiteNumber(item.likedCount),
+    ctime: finiteNumber(item.ctime) ?? finiteNumber(row.ctime) ?? finiteNumber(review?.ctime),
+    ratingCount: ratingCountOf(ratingBag) ?? finiteNumber(review?.total_rating_count) ?? finiteNumber(review?.cmt_count) ?? ratingCountOf(review),
+    wishlist: finiteNumber(item.liked_count) ?? finiteNumber(row.liked_count) ?? finiteNumber(item.likedCount) ?? finiteNumber(review?.liked_count),
     soldOut: typeof soldOutFlag === "boolean" ? soldOutFlag : stock === 0 ? true : stock !== null && stock > 0 ? false : null,
     adKeyword,
     adMode: adMode == null || adMode === "" ? null : String(adMode),
@@ -206,6 +241,14 @@ export function parseScoutEntry(entry: unknown, origin: string, fallbackShopId?:
       .map((value) => imageUrl(value))
       .filter((value): value is string => Boolean(value)),
   };
+}
+
+export function productDetailEntry(payload: unknown): unknown | null {
+  const root = asRecord(payload);
+  if (!root) return null;
+  const data = asRecord(root.data) ?? root;
+  if (data.product_review || data.product_price) return data;
+  return extractItemList(payload)?.[0] ?? null;
 }
 
 export function extractItemList(payload: unknown): unknown[] | null {

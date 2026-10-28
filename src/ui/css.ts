@@ -58,6 +58,10 @@ export const elevateCss = `
   background: #fff;
   padding: 6px 8px;
 }
+.ea-metrics { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ea-metrics div { background: #fff; border-radius: 10px; padding: 7px 8px; min-width: 72px; flex: 1; }
+.ea-metrics strong { display: block; font-size: 13px; }
+.ea-metrics span { color: #6d655b; font-size: 11px; }
 .ea-summary { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 14px 8px; }
 .ea-summary div { background: #f7f3ec; border-radius: 10px; padding: 8px 10px; min-width: 90px; }
 .ea-summary strong { display: block; font-size: 14px; }

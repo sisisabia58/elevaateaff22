@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { itemMetrics, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
-import { parseScoutEntry } from "./shopee";
+import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
 const NOW = Date.UTC(2026, 9, 27);
@@ -128,6 +128,32 @@ describe("product analytics", () => {
       "https://shopee.co.id",
     );
     expect(duplicated).toMatchObject({ sold: 900, monthlySold: null });
+    const page = parseScoutEntry(
+      productDetailEntry({
+        data: {
+          item: { itemid: 11, shopid: 22, name: "Kaos Kaki", ctime: 1_700_000_000, stock: 20 },
+          product_price: { price: 1_500_000_000 },
+          product_review: {
+            rating_star: 4.9,
+            total_rating_count: 21500,
+            historical_sold: 10000,
+            sold: 800,
+            liked_count: 3200,
+          },
+        },
+      }),
+      "https://shopee.co.id",
+    );
+    expect(page).toMatchObject({
+      price: 15000,
+      sold: 10000,
+      monthlySold: 800,
+      ratingCount: 21500,
+      wishlist: 3200,
+      rating: 4.9,
+      stock: 20,
+      ctime: 1_700_000_000,
+    });
     expect(detail).toMatchObject({
       sold: 900,
       monthlySold: 40,

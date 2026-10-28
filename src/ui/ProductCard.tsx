@@ -3,6 +3,7 @@ import type { Caption } from "../shared/captions";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
+import { ProductMetrics } from "./ProductMetrics";
 
 export function ProductCard({
   item,
@@ -96,6 +97,7 @@ export function ProductCard({
                 <span className={`ea-badge ${commission.source}`}>{formatRate(commission.ratePct)}</span>
               </div>
               <p className="ea-note">{commission.note}</p>
+              <ProductMetrics item={item} market={market} />
               {(commission.promotedLast7d !== null || commission.freeSample !== null || commission.xtraRatePct) && (
                 <div className="ea-facts">
                   {commission.promotedLast7d !== null && <span className="ea-chip">{commission.promotedLast7d} affiliate / 7 hari</span>}

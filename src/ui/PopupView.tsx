@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, PageKind, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
+import { ProductMetrics } from "./ProductMetrics";
 
 export function PopupView({
   kind,
@@ -60,6 +61,7 @@ export function PopupView({
                 <span className={`ea-badge ${commission.source}`}>{formatRate(commission.ratePct)}</span>
               </div>
               <p className="ea-note">{commission.note}</p>
+              <ProductMetrics item={item} market={market} />
               <div className="ea-actions">
                 <button className="ea-btn primary" type="button" onClick={onCopyCaption}>
                   Salin caption
@@ -83,8 +85,8 @@ export function PopupView({
             <div className="ea-empty">
               <strong>{scoutCount > 0 ? `${scoutCount} produk tercatat di halaman ini.` : "Scout menunggu produk."}</strong>
               {kind === "search"
-                ? "Urutkan menurut komisi, lalu salin link affiliate dari kartu produk."
-                : "Di halaman toko, cek komisi asli bisa mengambil daftar penawaran toko itu sekaligus."}
+                ? "Tombol Analisa ada di panel Elevate di atas daftar produk."
+                : "Tombol Analisa ada di panel Elevate di halaman toko ini."}
             </div>
           )}
           {note && <div className="ea-status">{note}</div>}

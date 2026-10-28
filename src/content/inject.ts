@@ -4,6 +4,7 @@ import {
   isProductDetailUrl,
   listKindFromUrl,
   parseScoutEntry,
+  productDetailEntry,
   productUrl,
 } from "../shared/shopee";
 
@@ -87,9 +88,8 @@ async function readJson(response: Response, rawUrl: string) {
     const json = await response.clone().json();
     maybeAccount(rawUrl, json);
     if (isProductDetailUrl(rawUrl)) {
-      const list = extractItemList(json);
-      if (list?.[0]) rememberProduct(list[0]);
-      else rememberProduct(json);
+      const entry = productDetailEntry(json);
+      if (entry) rememberProduct(entry);
     }
     rememberList(rawUrl, json);
   } catch {
@@ -122,8 +122,8 @@ XMLHttpRequest.prototype.send = function (body?: Document | XMLHttpRequestBodyIn
       maybeAccount(rawUrl, json);
       rememberList(rawUrl, json);
       if (isProductDetailUrl(rawUrl)) {
-        const list = extractItemList(json);
-        if (list?.[0]) rememberProduct(list[0]);
+        const entry = productDetailEntry(json);
+        if (entry) rememberProduct(entry);
       }
     } catch {
       /* ignore */
@@ -139,8 +139,8 @@ async function fetchItem(shopId: string, itemId: string) {
       { credentials: "include", headers: { Accept: "application/json" } },
     );
     const json = (await response.json()) as unknown;
-    const list = extractItemList(json);
-    if (list?.[0]) rememberProduct(list[0]);
+    const entry = productDetailEntry(json);
+    if (entry) rememberProduct(entry);
     else {
       post({
         type: "PRODUCT_MISSING",
@@ -157,8 +157,7 @@ async function fetchItem(shopId: string, itemId: string) {
 }
 
 function detailFrom(json: unknown) {
-  const list = extractItemList(json);
-  return parseScoutEntry(list?.[0] ?? json, location.origin);
+  return parseScoutEntry(productDetailEntry(json) ?? json, location.origin);
 }
 
 async function fetchStock(shopId: string, itemId: string) {
