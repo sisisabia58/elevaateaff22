@@ -162,7 +162,7 @@ export const elevateCss = `
 .ea-ai-state button { margin-top: 12px; border: 0; border-radius: 10px; background: #6366f1; color: #fff; padding: 8px 12px; font-weight: 700; }
 .ea-ai-card footer { padding: 10px 16px 14px; color: #94a3b8; font-size: 11px; border-top: 1px solid rgba(148, 163, 184, 0.2); }
 .ea-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; margin: 8px 0 4px; }
-.ea-chart-plot { position: relative; height: 180px; margin: 8px 0 4px 42px; }
+.ea-chart-plot { position: relative; height: 180px; margin: 8px 0 0 48px; }
 .ea-gridlines { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }
 .ea-gridline { border-top: 1px solid #f0f1f3; position: relative; height: 0; }
 .ea-gridline span { position: absolute; left: -6px; top: -7px; transform: translateX(-100%); font-size: 10px; color: #9ca3af; white-space: nowrap; }
@@ -172,8 +172,8 @@ export const elevateCss = `
 .ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; }
 .ea-chart-plot .ea-bar span { min-height: 0; border-radius: 4px 4px 0 0; }
 .ea-bar[aria-pressed="true"] span { background: #1c1915; }
-.ea-bar-labels { display: flex; gap: 6px; }
-.ea-bar-labels span { flex: 1; font-size: 10px; line-height: 1.25; color: #6d655b; text-align: center; word-break: break-word; }
+.ea-bar-labels { display: flex; gap: 10px; margin: 6px 0 4px 48px; }
+.ea-bar-labels span { flex: 1; font-size: 10px; line-height: 1.25; color: #9ca3af; text-align: center; word-break: break-word; }
 .ea-scout.analisa { max-height: min(78vh, 860px); }
 .ea-analisa-scroll { overflow: auto; max-height: 360px; padding: 0 8px 10px; }
 .ea-analisa table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
