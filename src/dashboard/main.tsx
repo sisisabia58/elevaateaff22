@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { downloadText } from "../shared/csv";
-import { dateBasisWarning, hppLines, listPeriods, parseCsv, parseExportGrid, parseHppCsv, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { dateBasisWarning, hppLines, listPeriods, listStores, mergeStoreRows, parseCsv, parseExportGrid, parseHppCsv, peekStoreName, rowsForStores, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
 
 const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat,Waktu Pesanan Dikonfirmasi,Waktu Pesanan Selesai
@@ -16,16 +16,28 @@ const SAMPLE_ADS = `Periode,01/10/2026 - 28/10/2026
 Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
 Tumbler,10000,40000,2`;
 
-function readSheet(buffer: ArrayBuffer): { headers: string[]; rows: string[][] } {
-  const book = XLSX.read(buffer, { type: "array" });
-  const sheet = book.Sheets[book.SheetNames[0]];
+function sheetGrid(sheet: XLSX.WorkSheet): string[][] {
   const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][];
-  const lines = grid.filter((row) => row.some((cell) => String(cell ?? "").trim()));
-  const [header = [], ...rest] = lines;
-  return {
-    headers: header.map((cell) => String(cell ?? "")),
-    rows: rest.map((row) => row.map((cell) => String(cell ?? ""))),
-  };
+  return grid
+    .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+    .map((row) => row.map((cell) => String(cell ?? "")));
+}
+
+function readWorkbook(buffer: ArrayBuffer): { headers: string[]; rows: string[][]; store: string | null } {
+  const book = XLSX.read(buffer, { type: "array" });
+  let store: string | null = null;
+  let data: string[][] | null = null;
+  for (const name of book.SheetNames) {
+    const grid = sheetGrid(book.Sheets[name]);
+    store = store || peekStoreName(grid);
+    const located = parseExportGrid(grid);
+    if (located.kind === "unknown") continue;
+    const preferred = /^(orders|penghasilan)$/i.test(name);
+    if (!data || preferred) data = grid;
+  }
+  const grid = data || sheetGrid(book.Sheets[book.SheetNames[0]]);
+  const [header = [], ...rest] = grid;
+  return { headers: header, rows: rest, store };
 }
 
 function DashboardApp() {
@@ -36,6 +48,7 @@ function DashboardApp() {
   const [period, setPeriod] = useState<string | null>(null);
   const [range, setRange] = useState<ProfitWindow | null>(null);
   const [basis, setBasis] = useState<DateBasis>("created");
+  const [storeFilter, setStoreFilter] = useState<string[] | null>(null);
 
   useEffect(() => {
     void loadBooks().then(setBooks);
@@ -56,8 +69,9 @@ function DashboardApp() {
       period: activeRange ? null : period,
       range: activeRange,
       basis,
+      storeFilter,
     });
-  }, [books, period, range, basis]);
+  }, [books, period, range, basis, storeFilter]);
 
   async function persist(next: Books, message: string | null) {
     setBooks(next);
@@ -71,18 +85,19 @@ function DashboardApp() {
     setReading(true);
     setNote(null);
     try {
-      const table = file.name.endsWith(".csv") ? parseCsv(await file.text()) : readSheet(await file.arrayBuffer());
+      const table = file.name.endsWith(".csv") ? { ...parseCsv(await file.text()), store: null as string | null } : readWorkbook(await file.arrayBuffer());
       const parsed = parseExportGrid([table.headers, ...table.rows]);
       if (parsed.kind === "unknown") {
         setNote("File ini bukan ekspor pesanan, keuangan, atau iklan.");
         return;
       }
       if (!books) return;
+      const store = table.store || parsed.store;
       const next: Books = {
         ...books,
-        orders: parsed.kind === "pesanan" ? parsed.orders : books.orders,
-        finance: parsed.kind === "keuangan" ? parsed.finance : books.finance,
-        ads: parsed.kind === "iklan" ? parsed.ads : books.ads,
+        orders: parsed.kind === "pesanan" ? mergeStoreRows(books.orders, parsed.orders, store) : books.orders,
+        finance: parsed.kind === "keuangan" ? mergeStoreRows(books.finance, parsed.finance, store) : books.finance,
+        ads: parsed.kind === "iklan" ? mergeStoreRows(books.ads, parsed.ads, store) : books.ads,
       };
       await persist(next, `Ekspor ${parsed.kind} masuk.`);
     } catch {
@@ -153,7 +168,7 @@ function DashboardApp() {
         snapshot={view}
         hppCount={Object.keys(books.hpp).length}
         note={note}
-        periods={listPeriods(books.orders, books.finance, basis)}
+        periods={listPeriods(books.orders, books.finance, basis, storeFilter)}
         period={period}
         onPeriod={setPeriod}
         range={range}
@@ -161,11 +176,18 @@ function DashboardApp() {
         basis={basis}
         onBasis={(next) => {
           setBasis(next);
-          const months = listPeriods(books.orders, books.finance, next);
+          const months = listPeriods(books.orders, books.finance, next, storeFilter);
           if (period && !months.includes(period)) setPeriod(null);
         }}
-        basisWarning={dateBasisWarning(books.orders, books.finance, basis)}
-        lines={hppLines(books.orders, books.hpp)}
+        basisWarning={dateBasisWarning(books.orders, books.finance, basis, storeFilter)}
+        stores={listStores(books.orders, books.finance, books.ads)}
+        storeFilter={storeFilter}
+        onStores={(next) => {
+          setStoreFilter(next);
+          const months = listPeriods(books.orders, books.finance, basis, next);
+          if (period && !months.includes(period)) setPeriod(null);
+        }}
+        lines={hppLines(rowsForStores(books.orders, storeFilter), books.hpp)}
         onHpp={(sku, value) => {
           void persist({ ...books, hpp: { ...books.hpp, [sku]: value } }, null);
         }}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger } from "./reports";
+import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -261,6 +261,40 @@ describe("shopee exports", () => {
     });
     expect(releasedOctober.orders).toBe(0);
     expect(releasedOctober.income).toBe(0);
+  });
+
+  it("keeps each store's rows and filters laba to the checked stores", () => {
+    const laut = parseExportGrid([
+      ["Nama Toko", "Toko Laut"],
+      ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Jumlah", "Harga Produk", "Status Pesanan", "Waktu Pesanan Dibuat"],
+      ["C1", "SKU3", "Wajan", "1", "30000", "Selesai", "2026-08-12"],
+    ]);
+    expect(laut.store).toBe("Toko Laut");
+    const dapur = parseExportGrid([
+      ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Jumlah", "Harga Produk", "Status Pesanan", "Waktu Pesanan Dibuat"],
+      ["A1", "SKU1", "Tumbler", "1", "100000", "Selesai", "2026-10-15"],
+    ]);
+    expect(dapur.store).toBe("Default");
+    const orders = mergeStoreRows(dapur.orders, laut.orders, laut.store);
+    expect(orders.map((row) => row.orderNo)).toEqual(["A1", "C1"]);
+    const replaced = mergeStoreRows(orders, laut.orders, "Toko Laut");
+    expect(replaced).toHaveLength(2);
+    expect(replaced.filter((row) => row.store === "Toko Laut")).toHaveLength(1);
+    const finance = [
+      { orderNo: "A1", productPrice: 100_000, harga: 100_000, income: 80_000, fees: -20_000, store: "Default" },
+      { orderNo: "C1", productPrice: 30_000, harga: 30_000, income: 27_000, fees: -3_000, admin: -3_000, store: "Toko Laut" },
+    ];
+    expect(listStores(orders, finance, [])).toEqual(["Default", "Toko Laut"]);
+    expect(toggleStore("Toko Laut", ["Default", "Toko Laut"], null)).toEqual(["Default"]);
+    expect(toggleStore("Toko Laut", ["Default", "Toko Laut"], ["Default"])).toBeNull();
+    const onlyLaut = snapshot({ orders, finance, ads: [{ name: "Tumbler", spend: 10_000, gmv: 40_000, orders: 1, store: "Default" }], hppBySku: {}, claimed: [], storeFilter: ["Toko Laut"] });
+    expect(onlyLaut.orders).toBe(1);
+    expect(onlyLaut.income).toBe(27_000);
+    expect(onlyLaut.adSpend).toBe(0);
+    const none = snapshot({ orders, finance, ads: [], hppBySku: {}, claimed: [], storeFilter: [] });
+    expect(none.orders).toBe(0);
+    expect(none.income).toBe(0);
+    expect(listPeriods(orders, finance, "created", ["Default"])).toEqual(["2026-10"]);
   });
 
   it("parses a csv row with quotes", () => {

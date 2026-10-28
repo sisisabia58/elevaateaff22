@@ -13,7 +13,7 @@ import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
-import { dateBasisWarning, hppLines, listPeriods, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { dateBasisWarning, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -53,8 +53,57 @@ export function Studio() {
   const [profitPeriod, setProfitPeriod] = useState<string | null>(null);
   const [profitRange, setProfitRange] = useState<ProfitWindow | null>(null);
   const [profitBasis, setProfitBasis] = useState<DateBasis>("created");
+  const [profitStores, setProfitStores] = useState<string[] | null>(null);
   const [profitHpp, setProfitHpp] = useState<Record<string, number>>({ SKU1: 15_000, SKU2: 8_000 });
-  const ledger = useMemo(() => studioLedger(), []);
+  const ledger = useMemo(() => {
+    const base = studioLedger();
+    const tag = <T extends { store?: string | null }>(rows: T[]) => rows.map((row) => ({ ...row, store: "Dapur Kecil" }));
+    return {
+      orders: [
+        ...tag(base.orders),
+        {
+          orderNo: "C1",
+          sku: "SKU3",
+          name: "Wajan",
+          qty: 1,
+          price: 30_000,
+          shippingPaid: 0,
+          shippingCost: 0,
+          cancelled: false,
+          createdAt: "2026-08-12",
+          confirmedAt: "2026-08-13",
+          completedAt: "2026-08-20",
+          store: "Toko Laut",
+        },
+      ],
+      finance: [
+        ...tag(base.finance),
+        {
+          orderNo: "C1",
+          store: "Toko Laut",
+          productPrice: 30_000,
+          harga: 30_000,
+          income: 27_000,
+          fees: -3_000,
+          admin: -3_000,
+          proses: 0,
+          xtra: 0,
+          layanan: 0,
+          ams: 0,
+          kampanye: 0,
+          lainnya: 0,
+          pengiriman: 0,
+          promoOngkir: 0,
+          cashback: 0,
+          refund: 0,
+          kompensasi: 0,
+          createdAt: "2026-08-12",
+          releasedAt: "2026-08-18",
+        },
+      ],
+      ads: tag(base.ads),
+    };
+  }, []);
   const [presets, setPresets] = useState<Record<string, RoasPreset>>({
     Tumbler: { ...EMPTY_ROAS, hargaJual: 100_000, hpp: 40_000, productId: "1001" },
     Talenan: { ...EMPTY_ROAS, hargaJual: 77_000, hpp: 20_000 },
@@ -516,11 +565,12 @@ export function Studio() {
                 period: profitRange?.from && profitRange?.to ? null : profitPeriod,
                 range: profitRange?.from && profitRange?.to ? profitRange : null,
                 basis: profitBasis,
+                storeFilter: profitStores,
               })}
               hppCount={Object.keys(profitHpp).length}
-              note="Tumbler dibuat 15 Okt, dikonfirmasi 1 Nov, selesai 2 Nov, dana dilepas 5 Nov. Sedotan September, dana dilepas 15 Sep. Iklan hanya 1–28 Oktober."
+              note="Dapur Kecil: Tumbler dibuat 15 Okt dan Sedotan September. Toko Laut: Wajan 12 Agu. Iklan Dapur Kecil hanya 1–28 Oktober."
               onOperasional={setOps}
-              periods={listPeriods(ledger.orders, ledger.finance, profitBasis)}
+              periods={listPeriods(ledger.orders, ledger.finance, profitBasis, profitStores)}
               period={profitPeriod}
               onPeriod={setProfitPeriod}
               range={profitRange}
@@ -528,11 +578,18 @@ export function Studio() {
               basis={profitBasis}
               onBasis={(next) => {
                 setProfitBasis(next);
-                const months = listPeriods(ledger.orders, ledger.finance, next);
+                const months = listPeriods(ledger.orders, ledger.finance, next, profitStores);
                 if (profitPeriod && !months.includes(profitPeriod)) setProfitPeriod(null);
               }}
-              basisWarning={dateBasisWarning(ledger.orders, ledger.finance, profitBasis)}
-              lines={hppLines(ledger.orders, profitHpp)}
+              basisWarning={dateBasisWarning(ledger.orders, ledger.finance, profitBasis, profitStores)}
+              stores={listStores(ledger.orders, ledger.finance, ledger.ads)}
+              storeFilter={profitStores}
+              onStores={(next) => {
+                setProfitStores(next);
+                const months = listPeriods(ledger.orders, ledger.finance, profitBasis, next);
+                if (profitPeriod && !months.includes(profitPeriod)) setProfitPeriod(null);
+              }}
+              lines={hppLines(rowsForStores(ledger.orders, profitStores), profitHpp)}
               onHpp={(sku, value) => setProfitHpp((current) => ({ ...current, [sku]: value }))}
             />
           )}
@@ -547,7 +604,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh ekspor keuangan: income bersih, alur dana, periode, dan basis tanggal.</li>
+            <li>Laba memakai contoh dua toko: centang Filter Toko untuk melihat Dapur Kecil atau Toko Laut saja.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

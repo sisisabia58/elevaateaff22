@@ -13,6 +13,7 @@ export type OrderRow = {
   confirmedAt?: string | null;
   completedAt?: string | null;
   releasedAt?: string | null;
+  store?: string | null;
 };
 
 export type DateBasis = "created" | "confirmed" | "completed" | "released";
@@ -40,6 +41,7 @@ export type FinanceRow = {
   confirmedAt?: string | null;
   completedAt?: string | null;
   releasedAt?: string | null;
+  store?: string | null;
 };
 
 export type MoneyFlow = {
@@ -58,7 +60,7 @@ export type MoneyFlow = {
   kompensasi: number;
 };
 
-export type AdRow = { name: string; spend: number; gmv: number; orders: number; periodFrom?: string | null; periodTo?: string | null };
+export type AdRow = { name: string; spend: number; gmv: number; orders: number; periodFrom?: string | null; periodTo?: string | null; store?: string | null };
 
 export type ProfitWindow = { from: string; to: string };
 
@@ -133,10 +135,24 @@ export function parseShopeeDate(value: string | undefined): string | null {
   return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
 }
 
-export function locateExport(grid: string[][]): { headers: string[]; rows: string[][]; adFrom: string | null; adTo: string | null } {
+export function peekStoreName(grid: string[][]): string | null {
+  const scan = Math.min(grid.length, 40);
+  for (let index = 0; index < scan; index += 1) {
+    const cells = grid[index] || [];
+    const label = (cells[0] || "").trim();
+    if (/^nama toko$/i.test(label) || /^username(\s*\(penjual\))?$/i.test(label)) {
+      const value = cells.slice(1).join(" ").trim();
+      if (value) return value;
+    }
+  }
+  return null;
+}
+
+export function locateExport(grid: string[][]): { headers: string[]; rows: string[][]; adFrom: string | null; adTo: string | null; store: string | null } {
   let adFrom: string | null = null;
   let adTo: string | null = null;
   let headerIndex = 0;
+  const store = peekStoreName(grid);
   const scan = Math.min(grid.length, 40);
   for (let index = 0; index < scan; index += 1) {
     const cells = grid[index] || [];
@@ -160,17 +176,26 @@ export function locateExport(grid: string[][]): { headers: string[]; rows: strin
       break;
     }
   }
-  return { headers: grid[headerIndex] || [], rows: grid.slice(headerIndex + 1), adFrom, adTo };
+  return { headers: grid[headerIndex] || [], rows: grid.slice(headerIndex + 1), adFrom, adTo, store };
 }
 
 export function parseExportGrid(grid: string[][]): {
   kind: ExportKind;
+  store: string;
   orders: OrderRow[];
   finance: FinanceRow[];
   ads: AdRow[];
 } {
   const located = locateExport(grid);
-  return parseTable(located.headers, located.rows, { from: located.adFrom, to: located.adTo });
+  const parsed = parseTable(located.headers, located.rows, { from: located.adFrom, to: located.adTo });
+  const store = located.store || "Default";
+  return {
+    ...parsed,
+    store,
+    orders: parsed.orders.map((row) => ({ ...row, store })),
+    finance: parsed.finance.map((row) => ({ ...row, store })),
+    ads: parsed.ads.map((row) => ({ ...row, store })),
+  };
 }
 
 export function parseTable(headers: string[], rows: string[][], adPeriod?: { from: string | null; to: string | null }): {
@@ -296,10 +321,16 @@ export function snapshot(input: {
   period?: string | null;
   range?: ProfitWindow | null;
   basis?: DateBasis;
+  storeFilter?: string[] | null;
 }): ProfitSnapshot {
   const window = input.range?.from && input.range?.to ? input.range : input.period ? monthWindow(input.period) : null;
   const basis = input.basis || "created";
-  const scoped = applyBasis(input.orders, input.finance, basis, window);
+  const scoped = applyBasis(
+    rowsForStores(input.orders, input.storeFilter),
+    rowsForStores(input.finance, input.storeFilter),
+    basis,
+    window,
+  );
   const orders = scoped.orders;
   const finance = scoped.finance;
   const active = orders.filter((row) => !row.cancelled && row.orderNo);
@@ -329,7 +360,7 @@ export function snapshot(input: {
   let adSpend = 0;
   let gmv = 0;
   let prorated = false;
-  for (const row of input.ads) {
+  for (const row of rowsForStores(input.ads, input.storeFilter)) {
     const fraction = adFraction(row, window);
     if (fraction <= 0) continue;
     if (fraction < 1) prorated = true;
@@ -371,20 +402,22 @@ export function periodLabel(period: string): string {
   return `${MONTHS[Number(month) - 1] || period} ${year}`;
 }
 
-export function listPeriods(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis = "created"): string[] {
+export function listPeriods(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis = "created", storeFilter?: string[] | null): string[] {
   const months = new Set<string>();
-  for (const row of orders) {
+  for (const row of rowsForStores(orders, storeFilter)) {
     const date = orderBasisDate(row, basis);
     if (date) months.add(date.slice(0, 7));
   }
-  for (const row of finance) {
+  for (const row of rowsForStores(finance, storeFilter)) {
     const date = financeBasisDate(row, basis);
     if (date) months.add(date.slice(0, 7));
   }
   return [...months].sort().reverse();
 }
 
-export function dateBasisWarning(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis): string | null {
+export function dateBasisWarning(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis, storeFilter?: string[] | null): string | null {
+  orders = rowsForStores(orders, storeFilter);
+  finance = rowsForStores(finance, storeFilter);
   if (basis === "created") return null;
   const ordersHave = orders.some((row) => orderHasBasis(row, basis));
   const financeHave = finance.some((row) => financeHasBasis(row, basis));
@@ -446,6 +479,29 @@ function applyBasis(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis,
     orders: orders.filter((row) => inWindow(orderBasisDate(row, basis), window)),
     finance: finance.filter((row) => inWindow(financeBasisDate(row, basis), window)),
   };
+}
+
+export function listStores(orders: OrderRow[], finance: FinanceRow[], ads: AdRow[]): string[] {
+  const stores = new Set<string>();
+  for (const row of [...orders, ...finance, ...ads]) if (row.store) stores.add(row.store);
+  return [...stores].sort((left, right) => left.localeCompare(right, "id"));
+}
+
+export function rowsForStores<T extends { store?: string | null }>(rows: T[], storeFilter?: string[] | null): T[] {
+  if (storeFilter == null) return rows;
+  return rows.filter((row) => storeFilter.includes(row.store || "Default"));
+}
+
+export function toggleStore(name: string, stores: string[], selected: string[] | null): string[] | null {
+  const current = selected ?? stores;
+  const next = current.includes(name) ? current.filter((store) => store !== name) : [...current, name];
+  if (next.length === 0) return [];
+  if (next.length >= stores.length) return null;
+  return next;
+}
+
+export function mergeStoreRows<T extends { store?: string | null }>(existing: T[], incoming: T[], store: string): T[] {
+  return [...existing.filter((row) => (row.store || "Default") !== store), ...incoming.map((row) => ({ ...row, store }))];
 }
 
 function inWindow(date: string | null | undefined, window: ProfitWindow | null): boolean {

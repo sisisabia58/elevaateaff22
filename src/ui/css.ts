@@ -435,6 +435,11 @@ export const elevateCss = `
 }
 .ea-options h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
 .ea-options .lede { color: #6d655b; margin: 0 0 18px; }
+.ea-stores { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; color: #6d655b; }
+.ea-stores > span { font-weight: 700; }
+.ea-stores label { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e4ddd2; background: #fff; border-radius: 999px; padding: 4px 8px; }
+.ea-stores label.on { background: #1c1915; color: #fff; border-color: #1c1915; }
+.ea-stores button { border: 0; background: transparent; color: #0f6e56; font-weight: 700; padding: 4px; }
 .ea-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 700; color: #6d655b; }
 .ea-basis select { border: 1px solid #e4ddd2; border-radius: 8px; padding: 6px 8px; background: #fff; font: inherit; font-weight: 600; color: #1c1915; max-width: 100%; }
 .ea-warn { margin: 0 0 12px; font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }

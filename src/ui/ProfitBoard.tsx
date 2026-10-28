@@ -1,5 +1,5 @@
 import { formatMoney, marketFromHost } from "../shared/money";
-import { periodLabel, type DateBasis, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { periodLabel, toggleStore, type DateBasis, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -41,6 +41,9 @@ export function ProfitBoard({
   basis = "created",
   onBasis,
   basisWarning = null,
+  stores = [],
+  storeFilter = null,
+  onStores,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
@@ -57,6 +60,9 @@ export function ProfitBoard({
   basis?: DateBasis;
   onBasis?: (basis: DateBasis) => void;
   basisWarning?: string | null;
+  stores?: string[];
+  storeFilter?: string[] | null;
+  onStores?: (filter: string[] | null) => void;
 }) {
   return (
     <div className="ea-root">
@@ -70,6 +76,26 @@ export function ProfitBoard({
             <div className="ea-empty">
               <strong>Belum ada laporan.</strong>
               Jatuhkan ekspor pesanan, keuangan, atau iklan. HPP per SKU bisa menyusul dari CSV.
+            </div>
+          )}
+          {stores.length > 1 && onStores && (
+            <div className="ea-stores" role="group" aria-label="Filter Toko">
+              <span>Filter Toko</span>
+              {stores.map((name) => {
+                const checked = storeFilter == null || storeFilter.includes(name);
+                return (
+                  <label key={name} className={checked ? "on" : ""}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => onStores(toggleStore(name, stores, storeFilter))}
+                    />
+                    {name}
+                  </label>
+                );
+              })}
+              <button type="button" onClick={() => onStores(null)}>Pilih Semua</button>
+              <button type="button" onClick={() => onStores([])}>Kosongkan</button>
             </div>
           )}
           {onBasis && (
