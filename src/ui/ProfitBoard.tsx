@@ -176,6 +176,14 @@ export function ProfitBoard({
             </div>
           )}
           {snapshot && (
+            <div className={`ea-hpp-summary ${snapshot.coverage.tone}`} id="hpp-summary">
+              <span id="hpp-summary-text">{snapshot.coverage.text}</span>
+              <button type="button" id="btn-goto-hpp-tab" onClick={() => document.getElementById("ea-hpp")?.scrollIntoView({ block: "start" })}>
+                Kelola SKU & HPP →
+              </button>
+            </div>
+          )}
+          {snapshot && (
             <div className="ea-metrics ea-profit-metrics">
               <article className="ea-metric">
                 <span className="ea-kicker">Total Omzet</span>
@@ -766,7 +774,6 @@ function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
   const maxShip = Math.max(1, ...charts.shipping.map((row) => row.count));
   const maxProv = Math.max(1, ...charts.provinces.map((row) => row.omzet));
   const maxFee = Math.max(1, ...charts.fees.map((row) => row.amount));
-  const maxProduct = Math.max(1, ...charts.products.map((row) => row.omzet));
   return (
     <div className="ea-charts">
       {charts.daily.length > 0 && (
@@ -821,7 +828,7 @@ function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
               <div key={row.label} className="ea-hbar">
                 <span title={row.label}>{row.label}</span>
                 <i style={{ width: `${(row.omzet / maxProv) * 100}%` }} />
-                <b>{formatMoney(row.omzet, market)}</b>
+                <b>{formatMoney(row.omzet, market)} · {row.orders}×</b>
               </div>
             ))}
           </section>
@@ -841,16 +848,45 @@ function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
         )}
       </div>
       {charts.products.length > 0 && (
-        <section className="ea-chart" aria-label="Top Produk berdasarkan Omzet">
+        <section className="ea-chart ea-products" aria-label="Top Produk berdasarkan Omzet">
           <h2>Top Produk berdasarkan Omzet</h2>
-          <p className="sub">{charts.products.length} SKU di periode ini</p>
-          {charts.products.map((row) => (
-            <div key={row.sku} className="ea-hbar">
-              <span title={row.name}>{row.sku}</span>
-              <i style={{ width: `${(row.omzet / maxProduct) * 100}%` }} />
-              <b>{formatMoney(row.omzet, market)}</b>
-            </div>
-          ))}
+          <p className="sub" id="product-sub">{charts.products.length} SKU · {charts.orderCount} order non-batal</p>
+          <div className="ea-iklan-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>SKU</th>
+                  <th>Nama Produk</th>
+                  <th>Omzet</th>
+                  <th>Qty</th>
+                  <th>Order</th>
+                  <th>% Omzet</th>
+                </tr>
+              </thead>
+              <tbody id="product-tbody">
+                {charts.products.map((row, index) => {
+                  const share = (row.omzet / (charts.totalOmzet || 1)) * 100;
+                  return (
+                    <tr key={row.sku}>
+                      <td>{index + 1}</td>
+                      <td><span className="ea-hpp-sku">{skuDisplayLabel(row.sku)}</span></td>
+                      <td className="ea-product-name" title={row.name}>{row.name}</td>
+                      <td className="num">{formatMoney(row.omzet, market)}</td>
+                      <td className="num">{Math.round(row.qty).toLocaleString("id-ID")}</td>
+                      <td className="num">{row.orders}</td>
+                      <td>
+                        <span className="ea-share">
+                          <i><b style={{ width: `${Math.min(share, 100).toFixed(0)}%` }} /></i>
+                          <em>{share.toFixed(1)}%</em>
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>

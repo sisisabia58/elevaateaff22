@@ -131,6 +131,7 @@ export type ProfitSnapshot = {
   flow: MoneyFlow;
   shortfalls: Shortfall[];
   charts: ProfitCharts;
+  coverage: HppCoverage;
 };
 
 export type ProfitCharts = {
@@ -141,6 +142,8 @@ export type ProfitCharts = {
   shipping: Array<{ label: string; count: number }>;
   provinces: Array<{ label: string; omzet: number; orders: number }>;
   products: Array<{ sku: string; name: string; omzet: number; qty: number; orders: number }>;
+  orderCount: number;
+  totalOmzet: number;
 };
 
 function norm(header: string): string {
@@ -483,6 +486,7 @@ export function snapshot(input: {
     shortfalls,
     charts: profitCharts(active, flow),
     campaigns: adCampaigns(input.ads, window, input.storeFilter),
+    coverage: hppCoverage(active, finance, input.hppBySku),
   };
 }
 
@@ -525,7 +529,7 @@ export function profitCharts(orders: OrderRow[], flow: MoneyFlow): ProfitCharts 
     product.omzet += row.subtotal ?? row.price;
     product.qty += row.qty || 1;
     product.orders.add(row.orderNo);
-    if (row.name) product.name = row.name;
+    if (row.name) product.name = row.name.length > 56 ? `${row.name.slice(0, 56)}…` : row.name;
     products.set(sku, product);
   }
   const dailyMap = new Map<string, { omzet: number; orders: number }>();
@@ -573,9 +577,24 @@ export function profitCharts(orders: OrderRow[], flow: MoneyFlow): ProfitCharts 
       .map(([label, value]) => ({ label, omzet: value.omzet, orders: value.orders })),
     products: [...products.values()]
       .sort((left, right) => right.omzet - left.omzet)
-      .slice(0, 8)
       .map((product) => ({ sku: product.sku, name: product.name, omzet: product.omzet, qty: product.qty, orders: product.orders.size })),
+    orderCount: byOrder.size,
+    totalOmzet: [...byOrder.values()].reduce((sum, order) => sum + order.subtotal, 0),
   };
+}
+
+export type HppCoverage = { total: number; missing: number; text: string; tone: "empty" | "ok" | "warn" };
+
+/** SENA updateHppSummary: finance narrows the SKU set to orders that also appear in the income report. */
+export function hppCoverage(orders: OrderRow[], finance: FinanceRow[], hppBySku: Record<string, number>): HppCoverage {
+  const financeIds = new Set(finance.map((row) => row.orderNo).filter(Boolean));
+  const rows = finance.length ? orders.filter((row) => financeIds.has(row.orderNo)) : orders;
+  const skus = new Set(rows.filter((row) => !row.cancelled).map((row) => hppKey(row)));
+  if (!skus.size) return { total: 0, missing: 0, text: "Belum ada data pesanan di periode ini.", tone: "empty" };
+  let missing = 0;
+  for (const sku of skus) if (!hppBySku[sku]) missing += 1;
+  if (!missing) return { total: skus.size, missing: 0, text: `Semua ${skus.size} SKU di periode ini udah diisi HPP.`, tone: "ok" };
+  return { total: skus.size, missing, text: `${missing} dari ${skus.size} SKU di periode ini belum diisi HPP -- profit belum akurat.`, tone: "warn" };
 }
 
 export function monthWindow(period: string): ProfitWindow {

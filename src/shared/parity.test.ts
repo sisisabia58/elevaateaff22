@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -340,11 +340,37 @@ describe("shopee exports", () => {
     expect(charts.shipping).toEqual([{ label: "SPX Hemat", count: 1 }]);
     expect(charts.provinces[0]).toMatchObject({ label: "DKI Jakarta", omzet: 100_000, orders: 1 });
     expect(charts.products.map((row) => row.sku)).toEqual(["SKU1", "SKU2"]);
+    expect(charts.orderCount).toBe(1);
+    expect(charts.totalOmzet).toBe(100_000);
+    expect(charts.products[0]).toMatchObject({ omzet: 60_000, qty: 1, orders: 1 });
     expect(charts.fees.find((row) => row.label === "Lainnya")?.amount).toBe(300);
     expect(charts.fees.find((row) => row.label === "Biaya Admin")?.amount).toBe(5_000);
     const october = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10" });
     expect(october.charts.daily.map((day) => day.date)).toEqual(["2026-10-15"]);
     expect(october.charts.provinces[0]?.label).toBe("DKI Jakarta");
+    const longName = "Tumbler Stainless Tutup Sedotan Warna Hitam Putih Merah Biru Hijau";
+    const clipped = profitCharts(
+      [{ orderNo: "Z", sku: "LONG", name: longName, qty: 1, price: 10, subtotal: 10, shippingPaid: 0, shippingCost: 0, cancelled: false }],
+      { harga: 0, admin: 0, proses: 0, xtra: 0, layanan: 0, ams: 0, kampanye: 0, lainnya: 0, pengiriman: 0, promoOngkir: 0, cashback: 0, refund: 0, kompensasi: 0 },
+    );
+    expect(clipped.products[0].name).toBe(`${longName.slice(0, 56)}…`);
+    expect(longName.length).toBeGreaterThan(56);
+  });
+
+  it("warns when a period SKU has no HPP, and ignores orders missing from the finance file", () => {
+    const orders = studioLedger().orders;
+    const finance = studioLedger().finance;
+    expect(hppCoverage([], [], {})).toMatchObject({ tone: "empty", text: "Belum ada data pesanan di periode ini." });
+    expect(hppCoverage(orders, finance, { SKU1: 15_000 })).toMatchObject({
+      total: 2,
+      missing: 1,
+      tone: "warn",
+      text: "1 dari 2 SKU di periode ini belum diisi HPP -- profit belum akurat.",
+    });
+    expect(hppCoverage(orders, finance, { SKU1: 15_000, SKU2: 8_000 }).text).toBe("Semua 2 SKU di periode ini udah diisi HPP.");
+    expect(hppCoverage(orders, [], { SKU1: 15_000 }).total).toBe(2);
+    const october = snapshot({ orders, finance, ads: [], hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10" });
+    expect(october.coverage.text).toBe("Semua 1 SKU di periode ini udah diisi HPP.");
   });
 
   it("keeps reported ad ROAS and prorates spend, clicks, and conversions", () => {
