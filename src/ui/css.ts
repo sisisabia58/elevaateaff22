@@ -464,6 +464,9 @@ export const elevateCss = `
 .ea-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 700; color: #6d655b; }
 .ea-basis select { border: 1px solid #e4ddd2; border-radius: 8px; padding: 6px 8px; background: #fff; font: inherit; font-weight: 600; color: #1c1915; max-width: 100%; }
 .ea-warn { margin: 0 0 12px; font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }
+.stat-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; }
+.stat-chip { background: #f5f6fa; border: 1px solid #e8eaf0; border-radius: 16px; padding: 3px 10px; font-size: 11px; }
+.stat-chip strong { font-weight: 700; }
 .ea-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .ea-chips button { border: 1px solid #e4ddd2; background: #fff; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
 .ea-chips button[aria-pressed="true"] { background: #1c1915; color: #fff; border-color: #1c1915; }

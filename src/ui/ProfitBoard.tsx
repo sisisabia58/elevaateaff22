@@ -96,6 +96,16 @@ export function ProfitBoard({
         <div className="ea-dash-wrap">
           <div className="ea-mark">E</div>
           <h1>Laba</h1>
+          {snapshot && (
+            <div className="stat-chips" id="hdr-chips">
+              <div className="stat-chip">Total Order: <strong>{snapshot.activeOrders + snapshot.cancelledOrders}</strong></div>
+              <div className="stat-chip">Non-Batal: <strong>{snapshot.activeOrders}</strong></div>
+              <div className="stat-chip">Batal: <strong>{snapshot.cancelledOrders}</strong></div>
+              {snapshot.financeLoaded && (
+                <div className="stat-chip">Dana Dilepaskan: <strong>{snapshot.released} order</strong></div>
+              )}
+            </div>
+          )}
           {importLog && (
             <div className="ea-history-bar">
               <button type="button" id="tb-history-btn" aria-expanded={historyOpen} onClick={() => setHistoryOpen((open) => !open)}>
@@ -234,14 +244,14 @@ export function ProfitBoard({
               <article className="ea-metric">
                 <span className="ea-kicker">Total Omzet</span>
                 <strong>{formatMoney(snapshot.omzet, market)}</strong>
-                <span>{snapshot.orders} order</span>
+                <span>{snapshot.activeOrders} order</span>
               </article>
               {marketplaceCost(snapshot) !== 0 && (
                 <article className="ea-metric">
                   <span className="ea-kicker">Biaya Marketplace Shopee</span>
                   <strong>{formatMoney(Math.abs(marketplaceCost(snapshot)), market)}</strong>
                   <span>
-                    {snapshot.flow.harga > 0 ? `${((Math.abs(marketplaceCost(snapshot)) / snapshot.flow.harga) * 100).toFixed(1)}% dari harga produk` : "—"} · {snapshot.orders} order
+                    {snapshot.flow.harga > 0 ? `${((Math.abs(marketplaceCost(snapshot)) / snapshot.flow.harga) * 100).toFixed(1)}% dari harga produk` : "—"} · {snapshot.released} order
                   </span>
                 </article>
               )}
@@ -269,7 +279,13 @@ export function ProfitBoard({
               </article>
               <article className="ea-metric">
                 <span className="ea-kicker">Order Batal</span>
-                <strong>{snapshot.cancelled}</strong>
+                <strong>{snapshot.cancelledOrders}</strong>
+                <span>
+                  {snapshot.activeOrders + snapshot.cancelledOrders
+                    ? `${((snapshot.cancelledOrders / (snapshot.activeOrders + snapshot.cancelledOrders)) * 100).toFixed(1)}%`
+                    : "—"}{" "}
+                  dari total masuk
+                </span>
               </article>
               <article className="ea-metric">
                 <span className="ea-kicker">Laba</span>

@@ -146,12 +146,59 @@ describe("shopee exports", () => {
     });
     expect(result.orders).toBe(1);
     expect(result.cancelled).toBe(1);
+    expect(result.activeOrders).toBe(1);
+    expect(result.cancelledOrders).toBe(1);
+    expect(result.released).toBe(1);
+    expect(result.financeLoaded).toBe(true);
     expect(result.hpp).toBe(30000);
     expect(result.income).toBe(75000);
     expect(result.profit).toBe(75000 - 30000 - 10000);
     expect(result.shortfalls).toEqual([]);
     expect(result.roas).toBe(4);
     expect(parseHppCsv("sku,varian,hpp\nSKU1,Merah,15000").map).toEqual({ SKU1: 15000 });
+  });
+
+  it("counts unique order numbers for the profit header chips", () => {
+    const line = (orderNo: string, sku: string, cancelled: boolean, createdAt: string) => ({
+      orderNo,
+      sku,
+      name: sku,
+      qty: 1,
+      price: 10_000,
+      shippingPaid: 0,
+      shippingCost: 0,
+      cancelled,
+      createdAt,
+    });
+    const ledger = studioLedger();
+    const all = snapshot({ orders: ledger.orders, finance: ledger.finance, ads: ledger.ads, hppBySku: {}, claimed: [] });
+    expect(all.activeOrders).toBe(2);
+    expect(all.cancelledOrders).toBe(0);
+    expect(all.released).toBe(2);
+    const october = snapshot({ orders: ledger.orders, finance: ledger.finance, ads: ledger.ads, hppBySku: {}, claimed: [], period: "2026-10" });
+    expect(october.activeOrders).toBe(1);
+    expect(october.cancelledOrders).toBe(0);
+    expect(october.released).toBe(1);
+    expect(october.financeLoaded).toBe(true);
+    const grouped = snapshot({
+      orders: [
+        line("A1", "SKU1", false, "2026-10-15"),
+        line("A1", "SKU1B", false, "2026-10-15"),
+        line("X", "SKU2", true, "2026-10-15"),
+        line("X", "SKU2B", true, "2026-10-15"),
+        line("Y", "SKU3", true, "2026-10-16"),
+      ],
+      finance: [],
+      ads: [],
+      hppBySku: {},
+      claimed: [],
+    });
+    expect(grouped.orders).toBe(2);
+    expect(grouped.cancelled).toBe(3);
+    expect(grouped.activeOrders).toBe(1);
+    expect(grouped.cancelledOrders).toBe(2);
+    expect(grouped.financeLoaded).toBe(false);
+    expect(grouped.released).toBe(0);
   });
 
   it("rebuilds net income from the signed Shopee finance columns", () => {

@@ -117,6 +117,14 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "
 export type ProfitSnapshot = {
   orders: number;
   cancelled: number;
+  /** Unique non-cancelled order numbers. SENA pesananAktif. */
+  activeOrders: number;
+  /** Unique cancelled order numbers. SENA pesananBatal. */
+  cancelledOrders: number;
+  /** Filtered finance rows. SENA K.n, the Dana Dilepaskan chip. */
+  released: number;
+  /** A finance file is loaded, even when the current window has zero rows. */
+  financeLoaded: boolean;
   omzet: number;
   income: number;
   fees: number;
@@ -427,7 +435,10 @@ export function snapshot(input: {
   const orders = scoped.orders;
   const finance = scoped.finance;
   const active = orders.filter((row) => !row.cancelled && row.orderNo);
-  const cancelled = orders.filter((row) => row.cancelled).length;
+  const cancelledRows = orders.filter((row) => row.cancelled);
+  const cancelled = cancelledRows.length;
+  const activeOrders = new Set(active.map((row) => row.orderNo)).size;
+  const cancelledOrders = new Set(cancelledRows.map((row) => row.orderNo)).size;
   const omzet = active.reduce((sum, row) => sum + row.price, 0);
   const flow = emptyFlow();
   for (const row of finance) {
@@ -478,6 +489,10 @@ export function snapshot(input: {
   return {
     orders: active.length,
     cancelled,
+    activeOrders,
+    cancelledOrders,
+    released: finance.length,
+    financeLoaded: input.finance.length > 0,
     omzet,
     income,
     fees,
