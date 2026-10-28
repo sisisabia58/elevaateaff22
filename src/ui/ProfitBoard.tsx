@@ -1,5 +1,5 @@
 import { formatMoney, marketFromHost } from "../shared/money";
-import type { ProfitSnapshot } from "../shared/reports";
+import { periodLabel, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -31,12 +31,26 @@ export function ProfitBoard({
   note,
   onClaim,
   onOperasional,
+  periods = [],
+  period = null,
+  onPeriod,
+  range = null,
+  onRange,
+  lines = [],
+  onHpp,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
   note?: string | null;
   onClaim?: (orderNo: string, claimed: boolean) => void;
   onOperasional?: (value: number) => void;
+  periods?: string[];
+  period?: string | null;
+  onPeriod?: (period: string | null) => void;
+  range?: ProfitWindow | null;
+  onRange?: (range: ProfitWindow | null) => void;
+  lines?: HppLine[];
+  onHpp?: (sku: string, value: number) => void;
 }) {
   return (
     <div className="ea-root">
@@ -50,6 +64,48 @@ export function ProfitBoard({
             <div className="ea-empty">
               <strong>Belum ada laporan.</strong>
               Jatuhkan ekspor pesanan, keuangan, atau iklan. HPP per SKU bisa menyusul dari CSV.
+            </div>
+          )}
+          {periods.length > 0 && onPeriod && (
+            <div className="ea-chips" role="group" aria-label="Periode">
+              <button type="button" aria-pressed={!(range?.from && range?.to) && period === null} onClick={() => { onRange?.(null); onPeriod(null); }}>
+                Semua
+              </button>
+              {periods.map((entry) => (
+                <button
+                  key={entry}
+                  type="button"
+                  aria-pressed={!(range?.from && range?.to) && period === entry}
+                  onClick={() => {
+                    onRange?.(null);
+                    onPeriod(entry);
+                  }}
+                >
+                  {periodLabel(entry)}
+                </button>
+              ))}
+            </div>
+          )}
+          {onRange && (
+            <div className="ea-range">
+              <label>
+                Dari
+                <input
+                  type="date"
+                  aria-label="Dari"
+                  value={range?.from ?? ""}
+                  onChange={(event) => onRange({ from: event.target.value, to: range?.to ?? "" })}
+                />
+              </label>
+              <label>
+                Sampai
+                <input
+                  type="date"
+                  aria-label="Sampai"
+                  value={range?.to ?? ""}
+                  onChange={(event) => onRange({ from: range?.from ?? "", to: event.target.value })}
+                />
+              </label>
             </div>
           )}
           {snapshot && (
@@ -76,7 +132,9 @@ export function ProfitBoard({
               <article className="ea-metric">
                 <span className="ea-kicker">Biaya Iklan Shopee</span>
                 <strong>{formatMoney(snapshot.adSpend, market)}</strong>
-                <span>{snapshot.adSpend > 0 ? `ROAS: ${snapshot.roas.toFixed(2)}×` : "—"}</span>
+                <span>
+                  {snapshot.prorated ? "≈ prorata harian" : snapshot.adSpend > 0 ? `ROAS: ${snapshot.roas.toFixed(2)}×` : "—"}
+                </span>
               </article>
               <article className="ea-metric">
                 <span className="ea-kicker">GMV dari Iklan</span>
@@ -160,6 +218,41 @@ export function ProfitBoard({
                 </tbody>
               </table>
               <p className="ea-note">Income = dana bersih yang disetorkan Shopee ke saldo penjual setelah semua fee dipotong. Real Profit = Total Income − HPP − Biaya Iklan − Biaya Operasional.</p>
+            </div>
+          )}
+          {lines.length > 0 && (
+            <div className="ea-sheet">
+              <div className="ea-kicker">Master SKU & HPP</div>
+              <p className="ea-note">Qty di tabel ini total dari semua pesanan yang pernah masuk, bukan cuma periode yang lagi dipilih.</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Produk</th>
+                    <th>Total terjual</th>
+                    <th>HPP / unit</th>
+                    <th>Total HPP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line) => (
+                    <tr key={line.sku}>
+                      <td>{line.sku}</td>
+                      <td>{line.name}</td>
+                      <td>{line.qty.toLocaleString("id-ID")}</td>
+                      <td>
+                        <input
+                          aria-label={`HPP ${line.sku}`}
+                          type="number"
+                          value={line.hpp || ""}
+                          onChange={(event) => onHpp?.(line.sku, Number(event.target.value) || 0)}
+                        />
+                      </td>
+                      <td>{formatMoney(line.qty * line.hpp, market)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
           <p className="ea-note">{hppCount ? `${hppCount} HPP tersimpan.` : "Belum ada HPP."} {note}</p>

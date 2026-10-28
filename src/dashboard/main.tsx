@@ -4,15 +4,16 @@ import * as XLSX from "xlsx";
 import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { downloadText } from "../shared/csv";
-import { parseCsv, parseHppCsv, parseTable, snapshot } from "../shared/reports";
+import { hppLines, listPeriods, parseCsv, parseExportGrid, parseHppCsv, snapshot, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
 
-const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan
-A1,SKU1,Tumbler,2,80000,5000,12000,Selesai
-A2,SKU1,Tumbler,1,40000,0,0,Batal`;
+const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat
+A1,SKU1,Tumbler,2,80000,5000,12000,Selesai,2026-10-15 09:00
+A2,SKU1,Tumbler,1,40000,0,0,Batal,2026-10-16 09:00`;
 const SAMPLE_FINANCE = `No. Pesanan,Harga Produk,Total Penghasilan,Biaya Administrasi,Biaya Layanan
 A1,80000,75000,-4000,-1000`;
-const SAMPLE_ADS = `Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
+const SAMPLE_ADS = `Periode,01/10/2026 - 28/10/2026
+Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
 Tumbler,10000,40000,2`;
 
 function readSheet(buffer: ArrayBuffer): { headers: string[]; rows: string[][] } {
@@ -32,6 +33,8 @@ function DashboardApp() {
   const [email, setEmail] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
+  const [period, setPeriod] = useState<string | null>(null);
+  const [range, setRange] = useState<ProfitWindow | null>(null);
 
   useEffect(() => {
     void loadBooks().then(setBooks);
@@ -41,6 +44,7 @@ function DashboardApp() {
   const view = useMemo(() => {
     if (!books) return null;
     if (!books.orders.length && !books.finance.length && !books.ads.length) return null;
+    const activeRange = range?.from && range?.to ? range : null;
     return snapshot({
       orders: books.orders,
       finance: books.finance,
@@ -48,8 +52,10 @@ function DashboardApp() {
       hppBySku: books.hpp,
       claimed: books.claimed,
       operasional: books.operasional || 0,
+      period: activeRange ? null : period,
+      range: activeRange,
     });
-  }, [books]);
+  }, [books, period, range]);
 
   async function persist(next: Books, message: string | null) {
     setBooks(next);
@@ -64,7 +70,7 @@ function DashboardApp() {
     setNote(null);
     try {
       const table = file.name.endsWith(".csv") ? parseCsv(await file.text()) : readSheet(await file.arrayBuffer());
-      const parsed = parseTable(table.headers, table.rows);
+      const parsed = parseExportGrid([table.headers, ...table.rows]);
       if (parsed.kind === "unknown") {
         setNote("File ini bukan ekspor pesanan, keuangan, atau iklan.");
         return;
@@ -106,9 +112,9 @@ function DashboardApp() {
                 className="ea-btn"
                 type="button"
                 onClick={() => {
-                  const orders = parseTable(parseCsv(SAMPLE_ORDERS).headers, parseCsv(SAMPLE_ORDERS).rows).orders;
-                  const finance = parseTable(parseCsv(SAMPLE_FINANCE).headers, parseCsv(SAMPLE_FINANCE).rows).finance;
-                  const ads = parseTable(parseCsv(SAMPLE_ADS).headers, parseCsv(SAMPLE_ADS).rows).ads;
+                  const orders = parseExportGrid(gridOf(SAMPLE_ORDERS)).orders;
+                  const finance = parseExportGrid(gridOf(SAMPLE_FINANCE)).finance;
+                  const ads = parseExportGrid(gridOf(SAMPLE_ADS)).ads;
                   void persist({ ...books, orders, finance, ads, hpp: { ...books.hpp, SKU1: 15000 } }, "Contoh dimuat.");
                 }}
               >
@@ -145,6 +151,15 @@ function DashboardApp() {
         snapshot={view}
         hppCount={Object.keys(books.hpp).length}
         note={note}
+        periods={listPeriods(books.orders, books.finance)}
+        period={period}
+        onPeriod={setPeriod}
+        range={range}
+        onRange={setRange}
+        lines={hppLines(books.orders, books.hpp)}
+        onHpp={(sku, value) => {
+          void persist({ ...books, hpp: { ...books.hpp, [sku]: value } }, null);
+        }}
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);
         }}
@@ -155,6 +170,11 @@ function DashboardApp() {
       />
     </>
   );
+}
+
+function gridOf(text: string): string[][] {
+  const table = parseCsv(text);
+  return [table.headers, ...table.rows];
 }
 
 createRoot(document.getElementById("root")!).render(<DashboardApp />);

@@ -13,7 +13,7 @@ import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
-import { demoProfitSnapshot } from "../shared/reports";
+import { hppLines, listPeriods, snapshot, studioLedger, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -50,6 +50,10 @@ export function Studio() {
   const [shareUrl, setShareUrl] = useState("");
   const [roas, setRoas] = useState(EMPTY_ROAS);
   const [ops, setOps] = useState(0);
+  const [profitPeriod, setProfitPeriod] = useState<string | null>(null);
+  const [profitRange, setProfitRange] = useState<ProfitWindow | null>(null);
+  const [profitHpp, setProfitHpp] = useState<Record<string, number>>({ SKU1: 15_000, SKU2: 8_000 });
+  const ledger = useMemo(() => studioLedger(), []);
   const [presets, setPresets] = useState<Record<string, RoasPreset>>({
     Tumbler: { ...EMPTY_ROAS, hargaJual: 100_000, hpp: 40_000, productId: "1001" },
     Talenan: { ...EMPTY_ROAS, hargaJual: 77_000, hpp: 20_000 },
@@ -500,7 +504,28 @@ export function Studio() {
             </div>
           )}
           {scene === "profit" && (
-            <ProfitBoard snapshot={demoProfitSnapshot(ops)} hppCount={1} note="Contoh satu pesanan Tumbler." onOperasional={setOps} />
+            <ProfitBoard
+              snapshot={snapshot({
+                orders: ledger.orders,
+                finance: ledger.finance,
+                ads: ledger.ads,
+                hppBySku: profitHpp,
+                claimed: [],
+                operasional: ops,
+                period: profitRange?.from && profitRange?.to ? null : profitPeriod,
+                range: profitRange?.from && profitRange?.to ? profitRange : null,
+              })}
+              hppCount={Object.keys(profitHpp).length}
+              note="Contoh Tumbler bulan Oktober dan Sedotan bulan September. Iklan hanya menutup 1–28 Oktober."
+              onOperasional={setOps}
+              periods={listPeriods(ledger.orders, ledger.finance)}
+              period={profitPeriod}
+              onPeriod={setProfitPeriod}
+              range={profitRange}
+              onRange={setProfitRange}
+              lines={hppLines(ledger.orders, profitHpp)}
+              onHpp={(sku, value) => setProfitHpp((current) => ({ ...current, [sku]: value }))}
+            />
           )}
         </section>
         <aside className="side-note">

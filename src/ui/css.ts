@@ -432,6 +432,13 @@ export const elevateCss = `
 }
 .ea-options h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
 .ea-options .lede { color: #6d655b; margin: 0 0 18px; }
+.ea-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.ea-chips button { border: 1px solid #e4ddd2; background: #fff; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+.ea-chips button[aria-pressed="true"] { background: #1c1915; color: #fff; border-color: #1c1915; }
+.ea-range { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
+.ea-range label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6d655b; }
+.ea-range input { border: 1px solid #e4ddd2; border-radius: 8px; padding: 6px 8px; background: #fff; }
+.ea-sheet input[type="number"] { width: 110px; border: 1px solid #e4ddd2; border-radius: 8px; padding: 6px 8px; }
 .ea-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .ea-field label { font-weight: 700; font-size: 13px; }
 .ea-field p { margin: 0; color: #6d655b; font-size: 12px; }

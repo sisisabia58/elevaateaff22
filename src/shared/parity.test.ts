@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { demoProfitSnapshot, detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
+import { adFraction, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -162,6 +162,45 @@ describe("shopee exports", () => {
     expect(result.adGmv).toBe(40000);
     expect(result.roas).toBe(4);
     expect(result.profit).toBe(85100 - 30000 - 10000 - 5000);
+  });
+
+  it("filters laba by month and prorates an ad report that only overlaps part of the window", () => {
+    const ledger = studioLedger();
+    expect(listPeriods(ledger.orders, ledger.finance)).toEqual(["2026-10", "2026-09"]);
+    expect(periodLabel("2026-10")).toBe("Okt 2026");
+    const october = snapshot({ orders: ledger.orders, finance: ledger.finance, ads: ledger.ads, hppBySku: { SKU1: 15_000, SKU2: 8_000 }, claimed: [], period: "2026-10" });
+    expect(october.income).toBe(85_100);
+    expect(october.hpp).toBe(30_000);
+    expect(october.adSpend).toBe(10_000);
+    expect(october.prorated).toBe(false);
+    expect(october.profit).toBe(45_100);
+    const september = snapshot({ orders: ledger.orders, finance: ledger.finance, ads: ledger.ads, hppBySku: { SKU1: 15_000, SKU2: 8_000 }, claimed: [], period: "2026-09" });
+    expect(september.income).toBe(19_000);
+    expect(september.adSpend).toBe(0);
+    expect(september.hpp).toBe(8_000);
+    expect(september.profit).toBe(11_000);
+    const partial = snapshot({
+      orders: ledger.orders,
+      finance: ledger.finance,
+      ads: ledger.ads,
+      hppBySku: { SKU1: 15_000 },
+      claimed: [],
+      range: { from: "2026-10-15", to: "2026-10-20" },
+    });
+    expect(partial.orders).toBe(1);
+    expect(partial.adSpend).toBeCloseTo(10_000 * (6 / 28), 5);
+    expect(partial.prorated).toBe(true);
+    expect(adFraction(ledger.ads[0], monthWindow("2026-10"))).toBe(1);
+    expect(hppLines(ledger.orders, { SKU1: 15_000, SKU2: 8_000 })).toEqual([
+      { sku: "SKU1", name: "Tumbler", qty: 2, hpp: 15_000 },
+      { sku: "SKU2", name: "Sedotan", qty: 1, hpp: 8_000 },
+    ]);
+    const ads = parseExportGrid([
+      ["Periode", "01/10/2026 - 28/10/2026"],
+      ["Nama Iklan", "Biaya", "Omzet Penjualan", "Produk Terjual"],
+      ["Tumbler", "10000", "40000", "2"],
+    ]);
+    expect(ads.ads[0]).toMatchObject({ periodFrom: "2026-10-01", periodTo: "2026-10-28", spend: 10_000 });
   });
 
   it("parses a csv row with quotes", () => {

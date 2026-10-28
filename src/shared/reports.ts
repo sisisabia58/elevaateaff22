@@ -9,6 +9,7 @@ export type OrderRow = {
   shippingPaid: number;
   shippingCost: number;
   cancelled: boolean;
+  createdAt?: string | null;
 };
 
 export type FinanceRow = {
@@ -29,6 +30,7 @@ export type FinanceRow = {
   cashback?: number;
   refund?: number;
   kompensasi?: number;
+  createdAt?: string | null;
 };
 
 export type MoneyFlow = {
@@ -47,7 +49,11 @@ export type MoneyFlow = {
   kompensasi: number;
 };
 
-export type AdRow = { name: string; spend: number; gmv: number; orders: number };
+export type AdRow = { name: string; spend: number; gmv: number; orders: number; periodFrom?: string | null; periodTo?: string | null };
+
+export type ProfitWindow = { from: string; to: string };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
 
 export type ProfitSnapshot = {
   orders: number;
@@ -58,6 +64,7 @@ export type ProfitSnapshot = {
   adSpend: number;
   adGmv: number;
   roas: number;
+  prorated: boolean;
   hpp: number;
   operasional: number;
   profit: number;
@@ -107,7 +114,57 @@ function sumAt(row: string[], indexes: number[]): number {
   return indexes.reduce((sum, index) => sum + num(row[index]), 0);
 }
 
-export function parseTable(headers: string[], rows: string[][]): {
+export function parseShopeeDate(value: string | undefined): string | null {
+  if (!value) return null;
+  const text = value.trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const dmy = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})/.exec(text);
+  if (!dmy) return null;
+  return `${dmy[3]}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+}
+
+export function locateExport(grid: string[][]): { headers: string[]; rows: string[][]; adFrom: string | null; adTo: string | null } {
+  let adFrom: string | null = null;
+  let adTo: string | null = null;
+  let headerIndex = 0;
+  const scan = Math.min(grid.length, 40);
+  for (let index = 0; index < scan; index += 1) {
+    const cells = grid[index] || [];
+    const label = (cells[0] || "").trim().toLowerCase();
+    if (label === "periode" || label.startsWith("periode")) {
+      const raw = cells.slice(1).join(" ");
+      const dates = [...raw.matchAll(/(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/g)]
+        .map((match) => parseShopeeDate(match[1]))
+        .filter((date): date is string => Boolean(date));
+      adFrom = dates[0] ?? null;
+      adTo = dates[1] ?? dates[0] ?? null;
+    }
+    const joined = cells.map((cell) => cell.toLowerCase()).join(" | ");
+    if (
+      joined.includes("urutan") ||
+      joined.includes("no. pesanan") ||
+      joined.includes("nomor pesanan") ||
+      (joined.includes("biaya") && (joined.includes("nama iklan") || joined.includes("nama produk")))
+    ) {
+      headerIndex = index;
+      break;
+    }
+  }
+  return { headers: grid[headerIndex] || [], rows: grid.slice(headerIndex + 1), adFrom, adTo };
+}
+
+export function parseExportGrid(grid: string[][]): {
+  kind: ExportKind;
+  orders: OrderRow[];
+  finance: FinanceRow[];
+  ads: AdRow[];
+} {
+  const located = locateExport(grid);
+  return parseTable(located.headers, located.rows, { from: located.adFrom, to: located.adTo });
+}
+
+export function parseTable(headers: string[], rows: string[][], adPeriod?: { from: string | null; to: string | null }): {
   kind: ExportKind;
   orders: OrderRow[];
   finance: FinanceRow[];
@@ -126,6 +183,7 @@ export function parseTable(headers: string[], rows: string[][]): {
     const paid = col(headers, "ongkir dibayar", "ongkos kirim dibayar");
     const cost = col(headers, "ongkir ke kurir", "ongkos kirim ke");
     const status = col(headers, "status");
+    const created = col(headers, "waktu pesanan dibuat", "waktu pesanan dikonfirmasi", "waktu pesanan selesai");
     for (const row of rows) {
       orders.push({
         orderNo: row[no] || "",
@@ -136,6 +194,7 @@ export function parseTable(headers: string[], rows: string[][]): {
         shippingPaid: num(row[paid]),
         shippingCost: num(row[cost]),
         cancelled: /batal/i.test(row[status] || ""),
+        createdAt: parseShopeeDate(row[created]),
       });
     }
   }
@@ -157,6 +216,7 @@ export function parseTable(headers: string[], rows: string[][]): {
     const cashback = matching(headers, (header) => header.includes("cashback koin"));
     const refund = matching(headers, (header) => header.includes("pengembalian dana ke pembeli"));
     const kompensasi = matching(headers, (header) => header === "kompensasi" || header.includes("kompensasi"));
+    const released = col(headers, "tanggal dana dilepaskan", "waktu pelepasan dana");
     for (const row of rows) {
       const harga = num(row[price]);
       const parts = {
@@ -182,6 +242,7 @@ export function parseTable(headers: string[], rows: string[][]): {
         income: components !== 0 ? harga + components : reported || harga,
         fees: parts.admin + parts.proses + parts.xtra + parts.layanan + parts.ams + parts.kampanye + parts.lainnya,
         ...parts,
+        createdAt: parseShopeeDate(row[released]),
       });
     }
   }
@@ -191,7 +252,14 @@ export function parseTable(headers: string[], rows: string[][]): {
     const gmv = col(headers, "omzet", "penjualan");
     const ordersCol = col(headers, "terjual", "konversi", "pesanan");
     for (const row of rows) {
-      ads.push({ name: row[name] || "", spend: num(row[spend]), gmv: num(row[gmv]), orders: num(row[ordersCol]) });
+      ads.push({
+        name: row[name] || "",
+        spend: num(row[spend]),
+        gmv: num(row[gmv]),
+        orders: num(row[ordersCol]),
+        periodFrom: adPeriod?.from ?? null,
+        periodTo: adPeriod?.to ?? null,
+      });
     }
   }
   return { kind, orders, finance, ads };
@@ -204,12 +272,18 @@ export function snapshot(input: {
   hppBySku: Record<string, number>;
   claimed: string[];
   operasional?: number;
+  period?: string | null;
+  range?: ProfitWindow | null;
 }): ProfitSnapshot {
-  const active = input.orders.filter((row) => !row.cancelled && row.orderNo);
-  const cancelled = input.orders.filter((row) => row.cancelled).length;
+  const window = input.range?.from && input.range?.to ? input.range : input.period ? monthWindow(input.period) : null;
+  const orderDate = new Map(input.orders.map((row) => [row.orderNo, row.createdAt || null]));
+  const orders = input.orders.filter((row) => inWindow(row.createdAt, window));
+  const finance = input.finance.filter((row) => inWindow(row.createdAt || orderDate.get(row.orderNo) || null, window));
+  const active = orders.filter((row) => !row.cancelled && row.orderNo);
+  const cancelled = orders.filter((row) => row.cancelled).length;
   const omzet = active.reduce((sum, row) => sum + row.price, 0);
   const flow = emptyFlow();
-  for (const row of input.finance) {
+  for (const row of finance) {
     flow.harga += row.harga || row.productPrice || 0;
     flow.admin += row.admin || 0;
     flow.proses += row.proses || 0;
@@ -226,11 +300,19 @@ export function snapshot(input: {
   }
   const components =
     flow.admin + flow.proses + flow.xtra + flow.layanan + flow.ams + flow.kampanye + flow.lainnya + flow.pengiriman + flow.promoOngkir + flow.cashback + flow.refund + flow.kompensasi;
-  const reported = input.finance.reduce((sum, row) => sum + (row.income || 0), 0);
-  const income = input.finance.length ? (components !== 0 ? flow.harga + components : reported) : omzet;
-  const fees = input.finance.reduce((sum, row) => sum + row.fees, 0);
-  const adSpend = input.ads.reduce((sum, row) => sum + row.spend, 0);
-  const gmv = input.ads.reduce((sum, row) => sum + row.gmv, 0);
+  const reported = finance.reduce((sum, row) => sum + (row.income || 0), 0);
+  const income = finance.length ? (components !== 0 ? flow.harga + components : reported) : omzet;
+  const fees = finance.reduce((sum, row) => sum + row.fees, 0);
+  let adSpend = 0;
+  let gmv = 0;
+  let prorated = false;
+  for (const row of input.ads) {
+    const fraction = adFraction(row, window);
+    if (fraction <= 0) continue;
+    if (fraction < 1) prorated = true;
+    adSpend += row.spend * fraction;
+    gmv += row.gmv * fraction;
+  }
   const hpp = active.reduce((sum, row) => sum + (input.hppBySku[row.sku] || 0) * (row.qty || 1), 0);
   const operasional = input.operasional || 0;
   const claimed = new Set(input.claimed);
@@ -246,11 +328,113 @@ export function snapshot(input: {
     adSpend,
     adGmv: gmv,
     roas: adSpend > 0 ? gmv / adSpend : 0,
+    prorated,
     hpp,
     operasional,
     profit: income - hpp - adSpend - operasional,
     flow,
     shortfalls,
+  };
+}
+
+export function monthWindow(period: string): ProfitWindow {
+  const [year, month] = period.split("-").map(Number);
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return { from: `${period}-01`, to: `${period}-${String(last).padStart(2, "0")}` };
+}
+
+export function periodLabel(period: string): string {
+  const [year, month] = period.split("-");
+  return `${MONTHS[Number(month) - 1] || period} ${year}`;
+}
+
+export function listPeriods(orders: OrderRow[], finance: FinanceRow[]): string[] {
+  const months = new Set<string>();
+  for (const row of orders) if (row.createdAt) months.add(row.createdAt.slice(0, 7));
+  for (const row of finance) if (row.createdAt) months.add(row.createdAt.slice(0, 7));
+  return [...months].sort().reverse();
+}
+
+function inWindow(date: string | null | undefined, window: ProfitWindow | null): boolean {
+  if (!window) return true;
+  return Boolean(date && date >= window.from && date <= window.to);
+}
+
+export function adFraction(ad: AdRow, window: ProfitWindow | null): number {
+  if (!window || !ad.periodFrom || !ad.periodTo) return 1;
+  if (ad.periodFrom > window.to || ad.periodTo < window.from) return 0;
+  const toMs = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+  const overlapFrom = ad.periodFrom > window.from ? ad.periodFrom : window.from;
+  const overlapTo = ad.periodTo < window.to ? ad.periodTo : window.to;
+  const overlapDays = Math.max(0, Math.round((toMs(overlapTo) - toMs(overlapFrom)) / 86_400_000) + 1);
+  const totalDays = Math.max(1, Math.round((toMs(ad.periodTo) - toMs(ad.periodFrom)) / 86_400_000) + 1);
+  return Math.min(1, overlapDays / totalDays);
+}
+
+export type HppLine = { sku: string; name: string; qty: number; hpp: number };
+
+export function hppLines(orders: OrderRow[], hpp: Record<string, number>): HppLine[] {
+  const map = new Map<string, HppLine>();
+  for (const row of orders) {
+    if (!row.sku || row.cancelled) continue;
+    const current = map.get(row.sku) || { sku: row.sku, name: row.name, qty: 0, hpp: hpp[row.sku] || 0 };
+    current.qty += row.qty || 1;
+    if (row.name) current.name = row.name;
+    current.hpp = hpp[row.sku] || 0;
+    map.set(row.sku, current);
+  }
+  return [...map.values()];
+}
+
+export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads: AdRow[] } {
+  const base = parseTable(
+    [
+      "No. Pesanan",
+      "Harga Produk",
+      "Biaya Administrasi",
+      "Biaya Proses Pesanan",
+      "Biaya Gratis Ongkir XTRA",
+      "Biaya Layanan",
+      "Biaya Komisi AMS",
+      "Biaya Kampanye",
+      "Biaya Lainnya",
+      "Ongkir Dibayar Pembeli",
+      "Ongkos Kirim yang Dibayarkan ke Jasa Kirim",
+      "Promo Gratis Ongkir dari Penjual",
+      "Cashback Koin disponsori Penjual",
+      "Kompensasi",
+    ],
+    [["A1", "100000", "-5000", "-2000", "-1000", "-1500", "-800", "-200", "-100", "4000", "-7000", "-1000", "-500", "200"]],
+  );
+  return {
+    orders: [
+      { orderNo: "A1", sku: "SKU1", name: "Tumbler", qty: 2, price: 100_000, shippingPaid: 0, shippingCost: 0, cancelled: false, createdAt: "2026-10-15" },
+      { orderNo: "B1", sku: "SKU2", name: "Sedotan", qty: 1, price: 20_000, shippingPaid: 0, shippingCost: 0, cancelled: false, createdAt: "2026-09-10" },
+    ],
+    finance: [
+      ...base.finance.map((row) => ({ ...row, createdAt: "2026-10-15" })),
+      {
+        orderNo: "B1",
+        productPrice: 20_000,
+        harga: 20_000,
+        income: 19_000,
+        fees: -1_000,
+        admin: -1_000,
+        proses: 0,
+        xtra: 0,
+        layanan: 0,
+        ams: 0,
+        kampanye: 0,
+        lainnya: 0,
+        pengiriman: 0,
+        promoOngkir: 0,
+        cashback: 0,
+        refund: 0,
+        kompensasi: 0,
+        createdAt: "2026-09-10",
+      },
+    ],
+    ads: [{ name: "Tumbler", spend: 10_000, gmv: 40_000, orders: 2, periodFrom: "2026-10-01", periodTo: "2026-10-28" }],
   };
 }
 
