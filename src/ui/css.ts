@@ -170,6 +170,26 @@ export const elevateCss = `
 .ea-scout.analisa { max-height: min(78vh, 860px); }
 .ea-analisa-scroll { overflow: auto; max-height: 360px; padding: 0 8px 10px; }
 .ea-analisa table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+.ea-mini-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 14px 8px; }
+.ea-mini-tools p { margin: 0; color: #6d655b; font-size: 12px; }
+.ea-mini-tools b { color: #1c1915; }
+.ea-mini-reset { border: 0; background: transparent; color: #0f6e56; font-weight: 700; padding: 0 4px; }
+.ea-mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 8px; padding: 0 14px 12px; }
+.ea-mini-card { display: flex; flex-direction: column; gap: 3px; border: 1px solid #eee6da; border-radius: 10px; background: #fff; padding: 8px; color: inherit; text-decoration: none; min-width: 0; }
+.ea-mini-thumb { aspect-ratio: 1; border-radius: 8px; background: #f3efe7; overflow: hidden; display: flex; align-items: center; justify-content: center; color: #a39b90; font-size: 12px; }
+.ea-mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ea-mini-name { font-size: 12px; font-weight: 700; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ea-mini-shop { color: #6d655b; font-size: 11px; }
+.ea-mini-hi { color: #0f6e56; font-size: 11px; font-weight: 700; }
+.ea-mini-price { font-size: 12px; }
+.ea-mini-deep { color: #0f6e56; font-size: 10px; font-weight: 700; }
+.ea-detail-modal { position: fixed; inset: 0; z-index: 2147483646; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.55); padding: 16px; }
+.ea-detail-card { width: min(880px, 96vw); max-height: 86vh; background: #f7f3ec; color: #1c1915; border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+.ea-detail-card header { display: flex; align-items: center; gap: 8px; padding: 14px 16px; background: #fff; border-bottom: 1px solid #eee6da; }
+.ea-detail-card h2 { margin: 0; font-size: 16px; }
+.ea-detail-card header p { margin: 0; color: #6d655b; font-size: 12px; }
+.ea-detail-card header button { margin-left: auto; border: 0; background: transparent; font-size: 18px; }
+.ea-detail-body { overflow: auto; padding: 12px; }
 .ea-market-list { display: grid; gap: 8px; padding: 0 8px 12px; }
 .ea-market-card { border: 1px solid #eee6da; border-radius: 12px; padding: 10px; background: #fff; }
 .ea-market-head { display: flex; gap: 8px; color: inherit; text-decoration: none; }

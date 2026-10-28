@@ -152,6 +152,7 @@ export function AnalisaTable({
   const [barMetric, setBarMetric] = useState<HistogramY>("count");
   const [dimension, setDimension] = useState<HistogramDimension>("price");
   const [bucket, setBucket] = useState<number | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const now = Date.now();
   const metrics = useMemo(() => metricsFor(items, now), [items, now]);
   const summary = useMemo(() => pageAnalytics(items, now), [items, now]);
@@ -176,6 +177,14 @@ export function AnalisaTable({
       : searched.filter((item) => itemBucketIndex(item, bars, dimension, now, shopCtimes) === bucket);
   const dimensionLabel = dimension === "age" ? "Sebaran umur listing" : dimension === "shopAge" ? "Sebaran umur toko" : "Sebaran harga";
   const filterLabel = bucket != null && bars[bucket] ? aiFilterLabel(bars[bucket], dimension, market) : null;
+  const selectedBar = bucket != null ? bars[bucket] : undefined;
+  const rangeCaption = selectedBar
+    ? dimension === "shopAge"
+      ? selectedBar.label
+      : dimension === "age"
+        ? `${formatAgeShort(selectedBar.min, market)}–${formatAgeShort(selectedBar.max, market)}`
+        : `${formatShortMoney(selectedBar.min, market).replace(market.symbol, "").trim()}–${formatShortMoney(selectedBar.max, market).replace(market.symbol, "").trim()}`
+    : null;
   const scopedItems = bucket == null ? items : ranged;
   const scopeKey = `${filterLabel ?? ""}|${scopedItems.map((item) => item.itemId).join(",")}`;
   useEffect(() => {
@@ -188,6 +197,7 @@ export function AnalisaTable({
     const bv = right ?? (dir === "desc" ? -Infinity : Infinity);
     return dir === "desc" ? bv - av : av - bv;
   });
+  const shopTotal = new Set(ordered.map((item) => item.shopId || item.shopName).filter(Boolean)).size;
 
   function sortValue(item: ScoutItem): number | null {
     if (sort === "price") return item.price;
@@ -445,15 +455,119 @@ export function AnalisaTable({
             Ubah pencarian atau tunggu Shopee memuat daftarnya.
           </div>
         </div>
+      ) : surface ? (
+        <>
+          <div className="ea-mini-tools">
+            <p>
+              {rangeCaption ? (
+                <>
+                  {ordered.length} produk di rentang <b>{rangeCaption}</b>{" "}
+                  <button className="ea-mini-reset" type="button" onClick={() => setBucket(null)}>
+                    reset
+                  </button>
+                </>
+              ) : (
+                `${ordered.length} produk`
+              )}
+            </p>
+            <button
+              className="ea-btn"
+              type="button"
+              title={
+                rangeCaption
+                  ? `Buka analisa detail lengkap — cuma ${ordered.length} produk di rentang "${rangeCaption}" yang lagi difilter (omset, trend, wishlist, dst), bisa dicari & diurutkan`
+                  : "Buka analisa detail lengkap — semua produk dalam kartu penuh (omset, trend, wishlist, dst), bisa dicari & diurutkan"
+              }
+              onClick={() => setDetailOpen(true)}
+            >
+              Analisa Detail
+            </button>
+          </div>
+          <div className="ea-mini-grid">
+            {ordered.slice(0, 120).map((item) => {
+              const hi = highlight(item);
+              const picture = thumb(item);
+              return (
+                <a key={item.itemId} className="ea-mini-card" href={item.url} target="_blank" rel="noreferrer" title="Klik buat buka halaman produk">
+                  <div className="ea-mini-thumb">{picture ? <img src={picture} alt="" /> : <span>Gambar</span>}</div>
+                  <div className="ea-mini-name">{clip(item.name, 46)}</div>
+                  <div className="ea-mini-shop">{clip(item.shopName || "Toko", 24)}</div>
+                  <div className="ea-mini-hi">
+                    {hi.label}: {hi.value}
+                  </div>
+                  <div className="ea-mini-price">{formatMoney(item.price, market)}</div>
+                  {item.stock != null && <div className="ea-mini-deep">Data diperdalam</div>}
+                </a>
+              );
+            })}
+          </div>
+          {ordered.length > 120 && (
+            <p className="ea-note" style={{ padding: "0 14px 12px" }}>
+              Menampilkan 120 dari {ordered.length} produk — ganti urutan buat lihat produk lain.
+            </p>
+          )}
+        </>
       ) : (
-        <div className="ea-market-list">
-          {ordered.slice(0, 80).map((item) => {
+        <div className="ea-market-list">{detailCards(ordered.slice(0, 80))}</div>
+      )}
+      {detailOpen && (
+        <div
+          className="ea-detail-modal"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setDetailOpen(false);
+          }}
+        >
+          <section className="ea-detail-card" role="dialog" aria-labelledby="ea-detail-title">
+            <header>
+              <div>
+                <h2 id="ea-detail-title">Analisa Detail</h2>
+                <p>{surface === "shop" ? `${ordered.length} produk` : `${ordered.length} produk dari ${shopTotal} toko`}</p>
+              </div>
+              <button type="button" aria-label="Tutup analisa detail" onClick={() => setDetailOpen(false)}>
+                ×
+              </button>
+            </header>
+            <div className="ea-detail-body">
+              <div className="ea-market-list">{detailCards(ordered.slice(0, 150))}</div>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+
+  function thumb(item: ScoutItem) {
+    if (!item.image) return null;
+    return /^https?:\/\//.test(item.image) ? item.image : `https://down-id.img.susercontent.com/${item.image}_tn`;
+  }
+
+  function highlight(item: ScoutItem): { label: string; value: string } {
+    const metric = metrics.get(item.itemId);
+    const commission = commissions[item.itemId];
+    if (sort === "omset30") return { label: "Omset 30 hari", value: metric?.omset30d == null ? "-" : formatMoney(metric.omset30d, market) };
+    if (sort === "trend") return { label: "Trend 30 hari", value: metric?.trendPct == null ? "-" : `${metric.trendPct >= 0 ? "+" : ""}${metric.trendPct.toFixed(0)}%` };
+    if (sort === "price") return { label: "Harga", value: formatMoney(item.price, market) };
+    if (sort === "sold") return { label: "Terjual/Bulan (rata-rata)", value: metric?.soldPerMonth == null ? "-" : `~${Math.round(metric.soldPerMonth)}` };
+    if (sort === "commission") return { label: "Est. Besar Komisi", value: commission ? formatMoney(commission.amount, market) : "-" };
+    if (sort === "stock") return { label: "Estimasi nilai stok", value: metric?.stockValue == null ? "-" : formatMoney(metric.stockValue, market) };
+    if (sort === "stockCount") return { label: "Stok", value: item.stock == null ? "-" : item.stock.toLocaleString("id-ID") };
+    if (sort === "age") return { label: "Usia Listing", value: metric?.ageDays == null ? "-" : formatAgeShort(metric.ageDays, market) };
+    if (sort === "rating") return { label: "Nilai Ulasan", value: item.rating == null ? "-" : item.rating.toFixed(1) };
+    if (sort === "wishlist") return { label: "Wishlist", value: item.wishlist == null ? "-" : item.wishlist.toLocaleString("id-ID") };
+    if (sort === "share") return { label: surface === "shop" ? "% dari omset toko" : "% dari Market Size", value: metric?.marketSharePct == null ? "-" : `${metric.marketSharePct.toFixed(1)}%` };
+    if (sort === "affiliates") return { label: "Jumlah Affiliator", value: commission?.promotedLast7d == null ? "-" : commission.promotedLast7d.toLocaleString("id-ID") };
+    return { label: "Penjualan 30 hari", value: blank(metric?.sold30d) };
+  }
+
+  function detailCards(list: ScoutItem[]) {
+    return list.map((item) => {
             const metric = metrics.get(item.itemId);
             const commission = commissions[item.itemId];
             const shopTime = item.shopCtime ?? shopCtimes[item.shopId] ?? null;
             const added = item.ctime ? new Date(item.ctime * 1000).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) : null;
             const hot = (item.sold ?? 0) >= 1000 && item.stock == null;
-            const picture = item.image && /^https?:\/\//.test(item.image) ? item.image : item.image ? `https://down-id.img.susercontent.com/${item.image}_tn` : null;
+            const picture = thumb(item);
             return (
               <article key={item.itemId} className="ea-market-card">
                 <a className="ea-market-head" href={item.url} target="_blank" rel="noreferrer">
@@ -537,9 +651,11 @@ export function AnalisaTable({
                 </div>
               </article>
             );
-          })}
-        </div>
-      )}
-    </div>
-  );
+    });
+  }
+}
+
+function clip(value: string, max: number): string {
+  const text = value.trim();
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
