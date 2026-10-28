@@ -1,3 +1,4 @@
+import { parseOrderIncome } from "../shared/order-profit";
 import { parseCreators, parseIncome, parsePerformance } from "../shared/research";
 import { SOURCE } from "../shared/types";
 
@@ -17,7 +18,8 @@ function handle(url: string, json: unknown) {
   const raw = String(url);
   if (raw.includes("/api/v4/accounting/pc/seller_income/income_detail/get_order_income_components")) {
     const income = parseIncome(json);
-    post({ type: "INCOME", income, missing: !income });
+    const order = parseOrderIncome(json);
+    post({ type: "INCOME", income, order, missing: !income && !order });
   }
   if (raw.includes("/api/v3/affiliateplatform/creator/list") || raw.includes("/api/v3/affiliateplatform/creator/detail")) {
     post({ type: "CREATORS", rows: parseCreators(json) });

@@ -16,7 +16,9 @@ import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
 import type { ImportEntry } from "../shared/imports";
 import { readHppFile } from "../shared/hpp-import";
 import { backupFilename, buildDashboardBackup, parseDashboardBackup, rememberLog, type ImportLogEntry } from "../shared/imports";
+import { SAMPLE_ORDER_INCOME, orderProfit, parseOrderIncome } from "../shared/order-profit";
 import { dateBasisWarning, hppImportMessage, hppLines, listPeriods, listStores, rowsForStores, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
+import { clearOrderProfit, mountOrderProfit } from "../ui/orderProfitCard";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -32,7 +34,7 @@ import { MarketAiDialog, type MarketAiPhase } from "../ui/MarketAiDialog";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { FEATURED, FIXTURES } from "./fixtures";
 
-type Scene = "search" | "product" | "popup" | "settings" | "iklan" | "performa" | "profit";
+type Scene = "search" | "product" | "popup" | "settings" | "iklan" | "performa" | "profit" | "pesanan";
 
 const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "search", label: "Pencarian" },
@@ -42,6 +44,7 @@ const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "iklan", label: "Iklan" },
   { id: "performa", label: "Performa" },
   { id: "profit", label: "Laba" },
+  { id: "pesanan", label: "Pesanan" },
 ];
 
 const previewImports: ImportEntry[] = [
@@ -191,6 +194,19 @@ export function Studio() {
     const root = document.querySelector(".perf-demo");
     if (root) stampPerfCards(root, previewFunnel());
   }, [scene]);
+
+  useEffect(() => {
+    if (scene !== "pesanan") {
+      clearOrderProfit();
+      return;
+    }
+    const host = document.getElementById("order-demo-host");
+    const parsed = parseOrderIncome(SAMPLE_ORDER_INCOME);
+    if (!host || !parsed) return;
+    host.innerHTML = `<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch"><div style="background:#fff;border:1px solid #eee6da;border-radius:8px;padding:16px;min-width:200px;flex:1"><div>Pembayaran Pembeli</div><div style="font-weight:700;margin-top:6px">Rp100.000</div></div><div style="background:#fff;border:1px solid #eee6da;border-radius:8px;padding:16px;min-width:200px;flex:1"><div>Penghasilan Akhir</div><div style="font-weight:700;margin-top:6px">Rp91.000</div></div></div><div style="margin-top:12px;background:#fff;border:1px solid #eee6da;border-radius:8px;padding:16px;display:grid;gap:8px"><div>Biaya Platform</div><div>Biaya Gratis Ongkir XTRA</div><div>Biaya Layanan</div><div>Biaya Promosi</div><div>Biaya Lainnya</div></div>`;
+    mountOrderProfit(orderProfit(parsed, profitHpp, presets), market);
+    return () => clearOrderProfit();
+  }, [scene, profitHpp, presets, market]);
   const items = empty ? [] : FIXTURES;
 
   const commissions = useMemo(() => {
@@ -677,6 +693,13 @@ export function Studio() {
               }}
             />
           )}
+          {scene === "pesanan" && (
+            <div className="page">
+              <h2>Detail pesanan</h2>
+              <p className="muted">Real Profit menempel di bawah Penghasilan Akhir. HPP SKU1 dari master laba, Talenan dari preset ROAS. Persen biaya menempel di tiap baris Shopee.</p>
+              <div id="order-demo-host" />
+            </div>
+          )}
         </section>
         <aside className="side-note">
           <h3>Yang bisa dicoba</h3>
@@ -689,6 +712,7 @@ export function Studio() {
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
             <li>Laba memakai contoh dua toko, detail iklan, master HPP, selisih ongkir, dan chip impor yang menguning setelah 35 hari.</li>
+            <li>Pesanan menempelkan Real Profit di bawah Penghasilan Akhir: Rp41.000, 41,00% dari harga produk.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

@@ -4,7 +4,9 @@ import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { formatMoney, marketFromHost } from "../shared/money";
 import { classifyPortfolio, funnelBrief, mergeServerClass } from "../shared/funnel";
+import { orderProfit, type OrderProfitState, type ParsedOrderIncome } from "../shared/order-profit";
 import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } from "../shared/research";
+import { clearOrderProfit, mountOrderProfit } from "../ui/orderProfitCard";
 import { stampAdTable } from "../shared/ad-badges";
 import { stampAdColumns } from "../shared/ad-columns";
 import { stampPerfMetrics } from "../shared/perf-metrics";
@@ -46,6 +48,7 @@ function SellerApp() {
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfNote, setPerfNote] = useState("Klik Analisa Funnel Produk untuk memuat 30 hari terakhir.");
   const [income, setIncome] = useState<IncomeParts | null>(null);
+  const [parsedOrder, setParsedOrder] = useState<ParsedOrderIncome | null>(null);
   const [incomeNote, setIncomeNote] = useState<string | null>("Komponen pendapatan belum masuk. Isi manual atau buka ulang pesanan.");
   const [manual, setManual] = useState({ price: "", fees: "", sku: "" });
   const [creators, setCreators] = useState<CreatorRow[]>([]);
@@ -72,6 +75,7 @@ function SellerApp() {
         channel?: string;
         type?: string;
         income?: IncomeParts | null;
+        order?: ParsedOrderIncome | null;
         missing?: boolean;
         rows?: PerfProduct[] | CreatorRow[];
         done?: boolean;
@@ -84,10 +88,14 @@ function SellerApp() {
       };
       if (!data || data.source !== SOURCE || data.channel !== "seller") return;
       if (data.type === "INCOME") {
+        if (data.order) {
+          setParsedOrder(data.order);
+          setIncomeNote(null);
+        } else setParsedOrder(null);
         if (data.income) {
           setIncome(data.income);
-          setIncomeNote(null);
-        } else setIncomeNote("Komponen pendapatan tidak terbaca dari halaman ini.");
+          if (!data.order) setIncomeNote(null);
+        } else if (!data.order) setIncomeNote("Komponen pendapatan tidak terbaca dari halaman ini.");
       }
       if (data.type === "PERFORMANCE_PROGRESS") {
         setPerfLoading(true);
@@ -196,7 +204,17 @@ function SellerApp() {
     void saveBooks(updated);
   }
 
+  useEffect(() => {
+    if (kind !== "order" || !parsedOrder || !books) {
+      clearOrderProfit();
+      return;
+    }
+    mountOrderProfit(orderProfit(parsedOrder, books.hpp, books.presets), market);
+    return () => clearOrderProfit();
+  }, [kind, parsedOrder, books, market]);
+
   const draft = broadcastDraft(draftKind, "toko ini");
+  const profitState: OrderProfitState | null = parsedOrder && books ? orderProfit(parsedOrder, books.hpp, books.presets) : null;
   const price = income?.price || Number(manual.price) || 0;
   const fees = income?.fees || Number(manual.fees) || 0;
   const sku = income?.sku || manual.sku;
@@ -299,7 +317,21 @@ function SellerApp() {
               <FunnelBoard rows={tiers} note={perfNote} />
             </>
           )}
-          {kind === "order" && (
+          {kind === "order" && profitState && (
+            <>
+              <div className="ea-commission">
+                <div>
+                  <div className="ea-kicker">Real Profit</div>
+                  <div className="ea-amount" id="ea-order-profit-side">{formatMoney(profitState.profit, market)}</div>
+                </div>
+              </div>
+              <p className="ea-note">
+                Total Penghasilan {formatMoney(profitState.netIncome, market)} − HPP {formatMoney(profitState.totalHpp, market)}. Kartu yang sama menempel di bawah Penghasilan Akhir.
+              </p>
+              {profitState.note && <p className="ea-note">{profitState.note.text}</p>}
+            </>
+          )}
+          {kind === "order" && !profitState && (
             <>
               {incomeNote && <p className="ea-note">{incomeNote}</p>}
               <div className="ea-field">
