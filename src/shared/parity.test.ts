@@ -149,7 +149,7 @@ describe("shopee exports", () => {
     expect(result.hpp).toBe(30000);
     expect(result.income).toBe(75000);
     expect(result.profit).toBe(75000 - 30000 - 10000);
-    expect(result.shortfalls[0]).toMatchObject({ orderNo: "A1", amount: 7000 });
+    expect(result.shortfalls).toEqual([]);
     expect(result.roas).toBe(4);
     expect(parseHppCsv("sku,varian,hpp\nSKU1,Merah,15000")).toEqual({ "SKU1|Merah": 15000 });
   });
@@ -162,6 +162,25 @@ describe("shopee exports", () => {
     expect(result.adGmv).toBe(40000);
     expect(result.roas).toBe(4);
     expect(result.profit).toBe(85100 - 30000 - 10000 - 5000);
+    expect(result.shortfalls).toEqual([expect.objectContaining({ orderNo: "A1", amount: -3000, claimed: false, date: null })]);
+  });
+
+  it("lists claimable shipping from a negative finance shipping net, sorted by the date basis", () => {
+    const finance = parseTable(
+      ["No. Pesanan", "Harga Produk", "Ongkir Dibayar Pembeli", "Ongkos Kirim yang Dibayarkan ke Jasa Kirim", "Waktu Pesanan Dibuat", "Tanggal Dana Dilepaskan"],
+      [
+        ["B1", "20000", "1000", "-4000", "2026-09-10", "2026-09-15"],
+        ["A1", "100000", "4000", "-7000", "2026-10-15", "2026-11-05"],
+        ["C1", "30000", "5000", "-1000", "2026-08-12", "2026-08-18"],
+      ],
+    ).finance.map((row) => ({ ...row, store: "Dapur Kecil" }));
+    const created = snapshot({ orders: [], finance, ads: [], hppBySku: {}, claimed: ["B1"], basis: "created" });
+    expect(created.shortfalls.map((row) => row.orderNo)).toEqual(["B1", "A1"]);
+    expect(created.shortfalls[0]).toMatchObject({ amount: -3000, claimed: true, date: "2026-09-10", store: "Dapur Kecil" });
+    expect(created.shortfalls[1].amount).toBe(-3000);
+    const released = snapshot({ orders: [], finance, ads: [], hppBySku: {}, claimed: [], basis: "released" });
+    expect(released.shortfalls[0]).toMatchObject({ orderNo: "B1", date: "2026-09-15" });
+    expect(released.shortfalls[1]).toMatchObject({ orderNo: "A1", date: "2026-11-05" });
   });
 
   it("filters laba by month and prorates an ad report that only overlaps part of the window", () => {

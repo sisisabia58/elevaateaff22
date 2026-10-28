@@ -642,7 +642,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh dua toko, detail iklan, dan master HPP: cari varian, sembunyikan yang sudah terisi, lalu terapkan HPP ke semua varian.</li>
+            <li>Laba memakai contoh dua toko, detail iklan, master HPP, dan kartu selisih ongkir yang membuka daftar klaim.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

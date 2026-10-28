@@ -68,6 +68,9 @@ export function ProfitBoard({
   const [hppQuery, setHppQuery] = useState("");
   const [hppMissing, setHppMissing] = useState(false);
   const [hppCollapsed, setHppCollapsed] = useState<Record<string, boolean>>({});
+  const [shortfallOpen, setShortfallOpen] = useState(false);
+  const [hideClaimed, setHideClaimed] = useState(false);
+  const [copyLabel, setCopyLabel] = useState("Copy No. Pesanan belum diklaim");
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
@@ -211,6 +214,19 @@ export function ProfitBoard({
                 <span className="ea-kicker">Laba</span>
                 <strong>{formatMoney(snapshot.profit, market)}</strong>
               </article>
+              {snapshot.shortfalls.length > 0 && (
+                <button
+                  type="button"
+                  className="ea-metric ea-shortfall"
+                  id="card-shortfall"
+                  title="Klik untuk lihat daftar No. Pesanan"
+                  onClick={() => setShortfallOpen(true)}
+                >
+                  <span className="ea-kicker">Selisih Ongkir (bisa diklaim)</span>
+                  <strong>{formatMoney(Math.abs(snapshot.shortfalls.reduce((sum, row) => sum + row.amount, 0)), market)}</strong>
+                  <span>{snapshot.shortfalls.length} order kena potongan ongkir riil · klik buat lihat No. Pesanan-nya</span>
+                </button>
+              )}
             </div>
           )}
           {snapshot && (
@@ -290,32 +306,128 @@ export function ProfitBoard({
             onHpp={onHpp}
           />
           <p className="ea-note">{hppCount ? `${hppCount} HPP tersimpan.` : "Belum ada HPP."} {note}</p>
-          {snapshot && snapshot.shortfalls.length > 0 && (
-            <div className="ea-sheet">
-              <div className="ea-kicker">Ongkir kurang</div>
-              <table>
-                <tbody>
-                  {snapshot.shortfalls.map((row) => (
-                    <tr key={row.orderNo}>
-                      <td>{row.orderNo}</td>
-                      <td>{formatMoney(row.amount, market)}</td>
-                      <td>
-                        <label className="ea-check">
-                          <input
-                            type="checkbox"
-                            checked={row.claimed}
-                            onChange={(event) => onClaim?.(row.orderNo, event.target.checked)}
-                          />
-                          <span>Sudah diklaim</span>
-                        </label>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {snapshot && shortfallOpen && (
+            <ShortfallModal
+              rows={snapshot.shortfalls}
+              hideClaimed={hideClaimed}
+              onHideClaimed={setHideClaimed}
+              copyLabel={copyLabel}
+              onCopy={() => {
+                const numbers = snapshot.shortfalls.filter((row) => !row.claimed).map((row) => row.orderNo);
+                if (!numbers.length) {
+                  setCopyLabel("Ngga ada yang belum diklaim");
+                  window.setTimeout(() => setCopyLabel("Copy No. Pesanan belum diklaim"), 1600);
+                  return;
+                }
+                const text = numbers.join("\n");
+                const done = () => {
+                  setCopyLabel(`Disalin (${numbers.length})`);
+                  window.setTimeout(() => setCopyLabel("Copy No. Pesanan belum diklaim"), 1600);
+                };
+                const fallback = () => {
+                  const area = document.createElement("textarea");
+                  area.value = text;
+                  area.style.position = "fixed";
+                  area.style.opacity = "0";
+                  document.body.appendChild(area);
+                  area.select();
+                  document.execCommand("copy");
+                  area.remove();
+                  done();
+                };
+                if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(fallback);
+                else fallback();
+              }}
+              onClaim={onClaim}
+              onClose={() => setShortfallOpen(false)}
+            />
           )}
-          {snapshot && snapshot.shortfalls.length === 0 && <p className="ea-note">Tidak ada selisih ongkir pada pesanan yang masuk.</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function shortfallDay(iso: string | null): string {
+  if (!iso) return "—";
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+function ShortfallModal({
+  rows,
+  hideClaimed,
+  onHideClaimed,
+  copyLabel,
+  onCopy,
+  onClaim,
+  onClose,
+}: {
+  rows: ProfitSnapshot["shortfalls"];
+  hideClaimed: boolean;
+  onHideClaimed: (value: boolean) => void;
+  copyLabel: string;
+  onCopy: () => void;
+  onClaim?: (orderNo: string, claimed: boolean) => void;
+  onClose: () => void;
+}) {
+  const visible = hideClaimed ? rows.filter((row) => !row.claimed) : rows;
+  const claimedCount = rows.filter((row) => row.claimed).length;
+  const unclaimedTotal = rows.filter((row) => !row.claimed).reduce((sum, row) => sum + row.amount, 0);
+  return (
+    <div className="ea-modal" id="shortfall-modal" onClick={onClose}>
+      <div className="ea-modal-card" onClick={(event) => event.stopPropagation()} role="dialog" aria-labelledby="shortfall-title">
+        <div className="ea-modal-head">
+          <h2 id="shortfall-title">Order dengan Selisih Ongkir</h2>
+          <button type="button" id="shortfall-modal-close" onClick={onClose} aria-label="Tutup">×</button>
+        </div>
+        <p className="ea-note">Order-order di bawah ini tercatat kena potongan ongkir riil (dari &quot;Biaya Pengiriman (net)&quot; Shopee, bukan estimasi). Centang setelah kamu ajukan klaim, biar ngga keajuin dobel.</p>
+        <div className="ea-shortfall-form">
+          <span>Ajukan klaim langsung lewat form Shopee</span>
+          <a href="https://help.shopee.co.id/portal/webform/64aeca598f7640b6919005c0d326bc97?is_from_login=true" target="_blank" rel="noopener">Buka form ↗</a>
+        </div>
+        <div className="ea-shortfall-tools">
+          <label>
+            <input id="shortfall-hide-claimed" type="checkbox" checked={hideClaimed} onChange={(event) => onHideClaimed(event.target.checked)} />
+            Sembunyikan yang sudah diklaim
+          </label>
+          <button type="button" id="shortfall-copy-all" onClick={onCopy}>{copyLabel}</button>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th />
+              <th>Tanggal</th>
+              <th>Toko</th>
+              <th>No. Pesanan</th>
+              <th>Selisih</th>
+            </tr>
+          </thead>
+          <tbody id="shortfall-modal-tbody">
+            {visible.length === 0 ? (
+              <tr><td colSpan={5} className="ea-hpp-empty">{rows.length ? "Semua order sudah diklaim." : "Ngga ada data."}</td></tr>
+            ) : visible.map((row) => (
+              <tr key={row.orderNo} className={row.claimed ? "claimed" : undefined}>
+                <td>
+                  <input
+                    className="shortfall-claim-cb"
+                    type="checkbox"
+                    aria-label={`Klaim ${row.orderNo}`}
+                    checked={row.claimed}
+                    onChange={(event) => onClaim?.(row.orderNo, event.target.checked)}
+                  />
+                </td>
+                <td>{shortfallDay(row.date)}</td>
+                <td>{row.store || "—"}</td>
+                <td className="mono">{row.orderNo}</td>
+                <td className="num">{formatMoney(row.amount, market)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="ea-shortfall-foot">
+          <span id="shortfall-footer-count">{claimedCount} dari {rows.length} sudah diklaim</span>
+          <span id="shortfall-footer-total">Total belum diklaim: {formatMoney(unclaimedTotal, market)}</span>
         </div>
       </div>
     </div>

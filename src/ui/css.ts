@@ -516,6 +516,26 @@ export const elevateCss = `
 .ea-hpp-all { display: flex; justify-content: flex-end; align-items: center; gap: 4px; margin-top: 4px; font-size: 10px; color: #6d655b; }
 .ea-hpp-empty { text-align: center; color: #6d655b; padding: 20px; }
 .ea-hpp tfoot td { color: #166534; font-size: 11px; }
+button.ea-shortfall { text-align: left; cursor: pointer; border-color: #a5b4fc; background: #f5f3ff; color: inherit; font: inherit; width: 100%; }
+button.ea-shortfall strong { color: #6d28d9; }
+.ea-modal { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.5); z-index: 40; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.ea-modal-card { background: #fffdf9; border-radius: 14px; max-width: 620px; width: 100%; max-height: 85vh; overflow: auto; padding: 20px 22px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25); }
+.ea-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ea-modal-head h2 { margin: 0; font-size: 15px; }
+.ea-modal-head button { border: 0; background: transparent; font-size: 20px; color: #6d655b; }
+.ea-shortfall-form { background: #ede9fe; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; flex-wrap: wrap; color: #6d28d9; font-size: 12px; }
+.ea-shortfall-form a { color: #6d28d9; font-weight: 700; white-space: nowrap; }
+.ea-shortfall-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ea-shortfall-tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #6d655b; }
+.ea-shortfall-tools button { font-size: 11px; padding: 6px 10px; border-radius: 6px; border: 1px solid #e4ddd2; background: #fff; }
+.ea-modal table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ea-modal th { text-align: left; color: #6d655b; font-size: 11px; padding: 6px 4px; border-bottom: 1px solid #eee6da; }
+.ea-modal td { padding: 7px 4px; border-bottom: 1px solid #eee6da; }
+.ea-modal td.num { text-align: right; font-weight: 700; color: #dc2626; }
+.ea-modal td.mono { font-family: ui-monospace, monospace; }
+.ea-modal tr.claimed td { color: #6d655b; text-decoration: line-through; }
+.ea-modal tr.claimed td.num { color: #6d655b; }
+.ea-shortfall-foot { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 11px; color: #6d655b; flex-wrap: wrap; }
 .ea-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .ea-field label { font-weight: 700; font-size: 13px; }
 .ea-field p { margin: 0; color: #6d655b; font-size: 12px; }

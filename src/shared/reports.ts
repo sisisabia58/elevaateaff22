@@ -49,6 +49,8 @@ export type FinanceRow = {
   store?: string | null;
 };
 
+export type Shortfall = { orderNo: string; amount: number; claimed: boolean; store: string; date: string | null };
+
 export type MoneyFlow = {
   harga: number;
   admin: number;
@@ -127,7 +129,7 @@ export type ProfitSnapshot = {
   operasional: number;
   profit: number;
   flow: MoneyFlow;
-  shortfalls: Array<{ orderNo: string; amount: number; claimed: boolean }>;
+  shortfalls: Shortfall[];
   charts: ProfitCharts;
 };
 
@@ -454,9 +456,16 @@ export function snapshot(input: {
   const hpp = active.reduce((sum, row) => sum + (input.hppBySku[hppKey(row)] || 0) * (row.qty || 1), 0);
   const operasional = input.operasional || 0;
   const claimed = new Set(input.claimed);
-  const shortfalls = active
-    .map((row) => ({ orderNo: row.orderNo, amount: Math.max(0, row.shippingCost - row.shippingPaid), claimed: claimed.has(row.orderNo) }))
-    .filter((row) => row.amount > 0);
+  const shortfalls = finance
+    .filter((row) => (row.pengiriman || 0) < 0 && row.orderNo)
+    .map((row) => ({
+      orderNo: row.orderNo,
+      amount: row.pengiriman || 0,
+      claimed: claimed.has(row.orderNo),
+      store: row.store || "",
+      date: shortfallDate(row, basis),
+    }))
+    .sort((a, b) => (a.date || "").localeCompare(b.date || "") || a.orderNo.localeCompare(b.orderNo));
   return {
     orders: active.length,
     cancelled,
@@ -475,6 +484,14 @@ export function snapshot(input: {
     charts: profitCharts(active, flow),
     campaigns: adCampaigns(input.ads, window, input.storeFilter),
   };
+}
+
+function shortfallDate(row: FinanceRow, basis: DateBasis): string | null {
+  const created = row.orderCreatedAt || null;
+  if (basis === "confirmed") return row.confirmedAt || created;
+  if (basis === "completed") return row.completedAt || created;
+  if (basis === "released") return row.releasedAt || row.createdAt || created;
+  return created;
 }
 
 export function shippingClass(option: string): string {
