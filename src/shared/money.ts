@@ -18,11 +18,12 @@ export function shopeeRawToMajor(raw: number | null | undefined): number | null 
 export function formatMoney(amount: number, market: Market): string {
   if (!Number.isFinite(amount)) return `${market.symbol} —`;
   const digits = market.code === "MYR" ? 2 : 0;
-  const formatted = amount.toLocaleString(market.locale, {
+  const formatted = Math.abs(amount).toLocaleString(market.locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });
-  return market.code === "MYR" ? `${market.symbol} ${formatted}` : `${market.symbol}${formatted}`;
+  const body = market.code === "MYR" ? `${market.symbol} ${formatted}` : `${market.symbol}${formatted}`;
+  return amount < 0 ? `–${body}` : body;
 }
 
 export function formatCount(value: number): string {

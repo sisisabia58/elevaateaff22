@@ -216,6 +216,7 @@ export const elevateCss = `
 .ea-sheet { margin-top: 12px; }
 .ea-sheet table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .ea-sheet td { padding: 6px 4px; border-top: 1px solid #eee6da; }
+.ea-sheet td:nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; }
 .ea-sheet td.down { color: #9f1239; }
 .ea-sheet tr.ea-flow-head td { border-top: 0; padding-top: 14px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; color: #6d655b; }
 .ea-profit-metrics { grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); }

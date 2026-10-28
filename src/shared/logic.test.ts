@@ -27,6 +27,7 @@ describe("money", () => {
 
   it("formats IDR without decimals and MYR with decimals", () => {
     expect(formatMoney(89000, marketFromHost("shopee.co.id"))).toBe("Rp89.000");
+    expect(formatMoney(-5000, marketFromHost("shopee.co.id"))).toBe("–Rp5.000");
     expect(formatMoney(19.5, marketFromHost("shopee.com.my"))).toBe("RM 19.50");
   });
 
