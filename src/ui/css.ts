@@ -435,6 +435,20 @@ export const elevateCss = `
 }
 .ea-options h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
 .ea-options .lede { color: #6d655b; margin: 0 0 18px; }
+.ea-charts { display: grid; gap: 12px; margin: 12px 0 16px; }
+.ea-chart { background: #fffdf9; border: 1px solid #e6dfd2; border-radius: 16px; padding: 14px; min-width: 0; }
+.ea-chart h2 { margin: 0; font-size: 14px; }
+.ea-chart .sub { margin: 2px 0 10px; color: #6d655b; font-size: 11px; }
+.ea-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ea-vbars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
+.ea-vbar { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
+.ea-vbar i { display: block; width: 100%; background: #dbeafe; border: 1.5px solid #2563eb; border-radius: 4px 4px 0 0; }
+.ea-vbar b, .ea-vbar span { font-size: 10px; font-weight: 600; color: #6d655b; }
+.ea-hbar { display: grid; grid-template-columns: minmax(88px, 34%) 1fr auto; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }
+.ea-hbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ea-hbar i { display: block; height: 8px; background: #2563eb; border-radius: 99px; }
+.ea-hbar b { font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) { .ea-split { grid-template-columns: 1fr; } }
 .ea-stores { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; color: #6d655b; }
 .ea-stores > span { font-weight: 700; }
 .ea-stores label { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #e4ddd2; background: #fff; border-radius: 999px; padding: 4px 8px; }

@@ -74,6 +74,10 @@ export function Studio() {
           confirmedAt: "2026-08-13",
           completedAt: "2026-08-20",
           store: "Toko Laut",
+          subtotal: 30_000,
+          province: "Jawa Timur",
+          payment: "Transfer Bank",
+          shipping: "Instant",
         },
       ],
       finance: [
@@ -604,7 +608,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh dua toko: centang Filter Toko untuk melihat Dapur Kecil atau Toko Laut saja.</li>
+            <li>Laba memakai contoh dua toko, plus tren harian, biaya, pembayaran, provinsi, kurir, dan SKU.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

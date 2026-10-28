@@ -1,5 +1,5 @@
 import { formatMoney, marketFromHost } from "../shared/money";
-import { periodLabel, toggleStore, type DateBasis, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { periodLabel, toggleStore, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -214,6 +214,7 @@ export function ProfitBoard({
               {formatMoney(snapshot.income, market)} − {formatMoney(snapshot.hpp, market)} (HPP) − {formatMoney(snapshot.adSpend, market)} (Iklan) − {formatMoney(snapshot.operasional, market)} (Ops) = {formatMoney(snapshot.profit, market)}
             </p>
           )}
+          {snapshot && <ProfitChartsView charts={snapshot.charts} />}
           {snapshot && onOperasional && (
             <label className="ea-field">
               Operasional
@@ -337,6 +338,103 @@ export function ProfitBoard({
           {snapshot && snapshot.shortfalls.length === 0 && <p className="ea-note">Tidak ada selisih ongkir pada pesanan yang masuk.</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
+  const maxDaily = Math.max(1, ...charts.daily.map((day) => day.omzet));
+  const maxPay = Math.max(1, ...charts.payments.map((row) => row.count));
+  const maxShip = Math.max(1, ...charts.shipping.map((row) => row.count));
+  const maxProv = Math.max(1, ...charts.provinces.map((row) => row.omzet));
+  const maxFee = Math.max(1, ...charts.fees.map((row) => row.amount));
+  const maxProduct = Math.max(1, ...charts.products.map((row) => row.omzet));
+  return (
+    <div className="ea-charts">
+      {charts.daily.length > 0 && (
+        <section className="ea-chart" aria-label="Tren Omzet Harian">
+          <h2>Tren Omzet Harian</h2>
+          <p className="sub">{charts.dailyLabel}</p>
+          <div className="ea-vbars">
+            {charts.daily.map((day) => (
+              <div key={day.date} className="ea-vbar" title={`${day.orders} order`}>
+                <b>{day.orders}</b>
+                <i style={{ height: `${Math.max(8, (day.omzet / maxDaily) * 88)}px` }} />
+                <span>{day.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      <div className="ea-split">
+        {charts.fees.length > 0 && (
+          <section className="ea-chart" aria-label="Breakdown Biaya Marketplace">
+            <h2>Breakdown Biaya Marketplace</h2>
+            <p className="sub">Total: {formatMoney(charts.fees.reduce((sum, row) => sum + row.amount, 0), market)}</p>
+            {charts.fees.map((row) => (
+              <div key={row.label} className="ea-hbar">
+                <span>{row.label}</span>
+                <i style={{ width: `${(row.amount / maxFee) * 100}%` }} />
+                <b>{formatMoney(row.amount, market)}</b>
+              </div>
+            ))}
+          </section>
+        )}
+        {charts.payments.length > 0 && (
+          <section className="ea-chart" aria-label="Metode Pembayaran">
+            <h2>Metode Pembayaran</h2>
+            <p className="sub">Distribusi per order non-batal</p>
+            {charts.payments.map((row) => (
+              <div key={row.label} className="ea-hbar">
+                <span>{row.label}</span>
+                <i style={{ width: `${(row.count / maxPay) * 100}%` }} />
+                <b>{row.count} order</b>
+              </div>
+            ))}
+          </section>
+        )}
+      </div>
+      <div className="ea-split">
+        {charts.provinces.length > 0 && (
+          <section className="ea-chart" aria-label="Top Provinsi">
+            <h2>Top Provinsi</h2>
+            <p className="sub">Berdasarkan omzet</p>
+            {charts.provinces.map((row) => (
+              <div key={row.label} className="ea-hbar">
+                <span title={row.label}>{row.label}</span>
+                <i style={{ width: `${(row.omzet / maxProv) * 100}%` }} />
+                <b>{formatMoney(row.omzet, market)}</b>
+              </div>
+            ))}
+          </section>
+        )}
+        {charts.shipping.length > 0 && (
+          <section className="ea-chart" aria-label="Jasa Pengiriman">
+            <h2>Jasa Pengiriman</h2>
+            <p className="sub">Distribusi per order</p>
+            {charts.shipping.map((row) => (
+              <div key={row.label} className="ea-hbar">
+                <span>{row.label}</span>
+                <i style={{ width: `${(row.count / maxShip) * 100}%` }} />
+                <b>{row.count}</b>
+              </div>
+            ))}
+          </section>
+        )}
+      </div>
+      {charts.products.length > 0 && (
+        <section className="ea-chart" aria-label="Top Produk berdasarkan Omzet">
+          <h2>Top Produk berdasarkan Omzet</h2>
+          <p className="sub">{charts.products.length} SKU di periode ini</p>
+          {charts.products.map((row) => (
+            <div key={row.sku} className="ea-hbar">
+              <span title={row.name}>{row.sku}</span>
+              <i style={{ width: `${(row.omzet / maxProduct) * 100}%` }} />
+              <b>{formatMoney(row.omzet, market)}</b>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

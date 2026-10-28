@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger, toggleStore } from "./reports";
+import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -295,6 +295,37 @@ describe("shopee exports", () => {
     expect(none.orders).toBe(0);
     expect(none.income).toBe(0);
     expect(listPeriods(orders, finance, "created", ["Default"])).toEqual(["2026-10"]);
+  });
+
+  it("builds the laba charts from unique orders and classifies the courier", () => {
+    expect(shippingClass("SPX Hemat")).toBe("SPX Hemat");
+    expect(shippingClass("Instant")).toBe("Instant/Same Day");
+    expect(shippingClass("Reguler")).toBe("SPX Standard");
+    expect(shippingClass("Kargo")).toBe("SPX Kargo");
+    expect(shippingClass("")).toBe("Lainnya");
+    const parsed = parseTable(
+      ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Jumlah", "Harga Produk", "Subtotal Pesanan", "Status Pesanan", "Waktu Pesanan Dibuat", "Provinsi", "Metode Pembayaran", "Opsi Pengiriman"],
+      [
+        ["A1", "SKU1", "Tumbler", "1", "60000", "60000", "Selesai", "2026-10-15", "DKI Jakarta", "ShopeePay", "Hemat"],
+        ["A1", "SKU2", "Sedotan", "1", "40000", "40000", "Selesai", "2026-10-15", "DKI Jakarta", "ShopeePay", "Hemat"],
+        ["B1", "SKU1", "Tumbler", "1", "20000", "20000", "Batal", "2026-10-16", "Banten", "COD", "Reguler"],
+      ],
+    );
+    expect(parsed.orders[0]).toMatchObject({ subtotal: 60_000, province: "DKI Jakarta", payment: "ShopeePay", shipping: "Hemat" });
+    const charts = profitCharts(
+      parsed.orders.filter((row) => !row.cancelled),
+      { harga: 0, admin: -5_000, proses: -2_000, xtra: 0, layanan: -1_500, ams: -800, kampanye: -200, lainnya: -100, pengiriman: -3_000, promoOngkir: 0, cashback: 0, refund: 0, kompensasi: 0 },
+    );
+    expect(charts.daily).toEqual([{ date: "2026-10-15", label: "15/10", omzet: 100_000, orders: 1 }]);
+    expect(charts.payments).toEqual([{ label: "ShopeePay", count: 1 }]);
+    expect(charts.shipping).toEqual([{ label: "SPX Hemat", count: 1 }]);
+    expect(charts.provinces[0]).toMatchObject({ label: "DKI Jakarta", omzet: 100_000, orders: 1 });
+    expect(charts.products.map((row) => row.sku)).toEqual(["SKU1", "SKU2"]);
+    expect(charts.fees.find((row) => row.label === "Lainnya")?.amount).toBe(300);
+    expect(charts.fees.find((row) => row.label === "Biaya Admin")?.amount).toBe(5_000);
+    const october = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10" });
+    expect(october.charts.daily.map((day) => day.date)).toEqual(["2026-10-15"]);
+    expect(october.charts.provinces[0]?.label).toBe("DKI Jakarta");
   });
 
   it("parses a csv row with quotes", () => {

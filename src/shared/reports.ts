@@ -14,6 +14,10 @@ export type OrderRow = {
   completedAt?: string | null;
   releasedAt?: string | null;
   store?: string | null;
+  subtotal?: number | null;
+  province?: string | null;
+  payment?: string | null;
+  shipping?: string | null;
 };
 
 export type DateBasis = "created" | "confirmed" | "completed" | "released";
@@ -81,6 +85,17 @@ export type ProfitSnapshot = {
   profit: number;
   flow: MoneyFlow;
   shortfalls: Array<{ orderNo: string; amount: number; claimed: boolean }>;
+  charts: ProfitCharts;
+};
+
+export type ProfitCharts = {
+  daily: Array<{ date: string; label: string; omzet: number; orders: number }>;
+  dailyLabel: string;
+  fees: Array<{ label: string; amount: number }>;
+  payments: Array<{ label: string; count: number }>;
+  shipping: Array<{ label: string; count: number }>;
+  provinces: Array<{ label: string; omzet: number; orders: number }>;
+  products: Array<{ sku: string; name: string; omzet: number; qty: number; orders: number }>;
 };
 
 function norm(header: string): string {
@@ -214,6 +229,10 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
     const name = col(headers, "nama produk");
     const qty = col(headers, "jumlah");
     const price = col(headers, "harga produk", "harga");
+    const subtotal = col(headers, "subtotal pesanan");
+    const province = col(headers, "provinsi");
+    const payment = col(headers, "metode pembayaran");
+    const shipping = col(headers, "opsi pengiriman");
     const paid = col(headers, "ongkir dibayar", "ongkos kirim dibayar");
     const cost = col(headers, "ongkir ke kurir", "ongkos kirim ke");
     const status = col(headers, "status");
@@ -227,6 +246,10 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
         name: row[name] || "",
         qty: num(row[qty]) || 1,
         price: num(row[price]),
+        subtotal: subtotal >= 0 ? num(row[subtotal]) : null,
+        province: province >= 0 ? row[province] || "" : null,
+        payment: payment >= 0 ? row[payment] || "" : null,
+        shipping: shipping >= 0 ? row[shipping] || "" : null,
         shippingPaid: num(row[paid]),
         shippingCost: num(row[cost]),
         cancelled: /batal/i.test(row[status] || ""),
@@ -388,6 +411,91 @@ export function snapshot(input: {
     profit: income - hpp - adSpend - operasional,
     flow,
     shortfalls,
+    charts: profitCharts(active, flow),
+  };
+}
+
+export function shippingClass(option: string): string {
+  if (option.includes("Hemat")) return "SPX Hemat";
+  if (option.includes("Instant") || option.includes("Same Day")) return "Instant/Same Day";
+  if (option.includes("Standard") || option.includes("Reguler")) return "SPX Standard";
+  if (option.includes("Kargo")) return "SPX Kargo";
+  return "Lainnya";
+}
+
+export function profitCharts(orders: OrderRow[], flow: MoneyFlow): ProfitCharts {
+  const byOrder = new Map<string, { subtotal: number; date: string | null; province: string; payment: string; shipping: string }>();
+  const products = new Map<string, { sku: string; name: string; omzet: number; qty: number; orders: Set<string> }>();
+  for (const row of orders) {
+    if (!row.orderNo) continue;
+    const current = byOrder.get(row.orderNo) || {
+      subtotal: 0,
+      date: row.createdAt || null,
+      province: row.province || "",
+      payment: row.payment || "",
+      shipping: row.shipping || "",
+    };
+    current.subtotal += row.subtotal ?? row.price;
+    if (!current.date && row.createdAt) current.date = row.createdAt;
+    if (!current.province && row.province) current.province = row.province;
+    if (!current.payment && row.payment) current.payment = row.payment;
+    if (!current.shipping && row.shipping) current.shipping = row.shipping;
+    byOrder.set(row.orderNo, current);
+    const sku = row.sku || row.name || row.orderNo;
+    const product = products.get(sku) || { sku, name: row.name, omzet: 0, qty: 0, orders: new Set<string>() };
+    product.omzet += row.subtotal ?? row.price;
+    product.qty += row.qty || 1;
+    product.orders.add(row.orderNo);
+    if (row.name) product.name = row.name;
+    products.set(sku, product);
+  }
+  const dailyMap = new Map<string, { omzet: number; orders: number }>();
+  const provinces = new Map<string, { omzet: number; orders: number }>();
+  const payments = new Map<string, number>();
+  const shipping = new Map<string, number>();
+  for (const order of byOrder.values()) {
+    if (order.date) {
+      const day = dailyMap.get(order.date) || { omzet: 0, orders: 0 };
+      day.omzet += order.subtotal;
+      day.orders += 1;
+      dailyMap.set(order.date, day);
+    }
+    const province = order.province || "Lainnya";
+    const prov = provinces.get(province) || { omzet: 0, orders: 0 };
+    prov.omzet += order.subtotal;
+    prov.orders += 1;
+    provinces.set(province, prov);
+    const payment = order.payment || "Lainnya";
+    payments.set(payment, (payments.get(payment) || 0) + 1);
+    const courier = shippingClass(order.shipping || "");
+    shipping.set(courier, (shipping.get(courier) || 0) + 1);
+  }
+  const daily = [...dailyMap.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([date, value]) => ({ date, label: `${date.slice(8, 10)}/${date.slice(5, 7)}`, omzet: value.omzet, orders: value.orders }));
+  const fees = [
+    { label: "Biaya Admin", amount: Math.abs(flow.admin) },
+    { label: "Biaya Layanan", amount: Math.abs(flow.layanan) },
+    { label: "Biaya Proses", amount: Math.abs(flow.proses) },
+    { label: "Biaya Pengiriman", amount: Math.abs(flow.pengiriman) },
+    { label: "Komisi AMS", amount: Math.abs(flow.ams) },
+    { label: "Biaya XTRA", amount: Math.abs(flow.xtra) },
+    { label: "Lainnya", amount: Math.abs(flow.lainnya) + Math.abs(flow.kampanye) },
+  ].filter((item) => item.amount > 0);
+  return {
+    daily,
+    dailyLabel: daily.length ? `${daily[0].date} s/d ${daily[daily.length - 1].date}` : "—",
+    fees,
+    payments: [...payments.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8).map(([label, count]) => ({ label, count })),
+    shipping: [...shipping.entries()].sort((left, right) => right[1] - left[1]).map(([label, count]) => ({ label, count })),
+    provinces: [...provinces.entries()]
+      .sort((left, right) => right[1].omzet - left[1].omzet)
+      .slice(0, 10)
+      .map(([label, value]) => ({ label, omzet: value.omzet, orders: value.orders })),
+    products: [...products.values()]
+      .sort((left, right) => right.omzet - left.omzet)
+      .slice(0, 8)
+      .map((product) => ({ sku: product.sku, name: product.name, omzet: product.omzet, qty: product.qty, orders: product.orders.size })),
   };
 }
 
@@ -569,6 +677,10 @@ export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads
         createdAt: "2026-10-15",
         confirmedAt: "2026-11-01",
         completedAt: "2026-11-02",
+        subtotal: 100_000,
+        province: "DKI Jakarta",
+        payment: "ShopeePay",
+        shipping: "Hemat",
       },
       {
         orderNo: "B1",
@@ -582,6 +694,10 @@ export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads
         createdAt: "2026-09-10",
         confirmedAt: "2026-09-11",
         completedAt: "2026-09-20",
+        subtotal: 20_000,
+        province: "Jawa Barat",
+        payment: "COD",
+        shipping: "Reguler",
       },
     ],
     finance: [
