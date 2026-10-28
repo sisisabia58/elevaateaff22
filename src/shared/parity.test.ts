@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adFraction, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger } from "./reports";
+import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, snapshot, studioLedger } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -201,6 +201,66 @@ describe("shopee exports", () => {
       ["Tumbler", "10000", "40000", "2"],
     ]);
     expect(ads.ads[0]).toMatchObject({ periodFrom: "2026-10-01", periodTo: "2026-10-28", spend: 10_000 });
+  });
+
+  it("moves laba when the date basis changes and joins the report that lacks that column", () => {
+    const ledger = studioLedger();
+    const parsed = parseTable(
+      ["No. Pesanan", "Nomor Referensi SKU", "Nama Produk", "Jumlah", "Harga Produk", "Status Pesanan", "Waktu Pesanan Dibuat", "Waktu Pesanan Dikonfirmasi", "Waktu Pesanan Selesai"],
+      [["A1", "SKU1", "Tumbler", "2", "100000", "Selesai", "15/10/2026 09:00", "01/11/2026 08:00", "02/11/2026"]],
+    );
+    expect(parsed.orders[0]).toMatchObject({ createdAt: "2026-10-15", confirmedAt: "2026-11-01", completedAt: "2026-11-02" });
+    const finance = parseTable(
+      ["No. Pesanan", "Harga Produk", "Total Penghasilan", "Waktu Pelepasan Dana", "Waktu Pesanan Dibuat"],
+      [["A1", "100000", "85100", "05/11/2026", "15/10/2026"]],
+    );
+    expect(finance.finance[0]).toMatchObject({ releasedAt: "2026-11-05", orderCreatedAt: "2026-10-15", createdAt: "2026-11-05" });
+
+    expect(dateBasisWarning(ledger.orders, ledger.finance, "created")).toBeNull();
+    expect(dateBasisWarning(ledger.orders, ledger.finance, "completed")).toMatch(/Laporan Keuangan/);
+    expect(dateBasisWarning(ledger.orders, ledger.finance, "released")).toMatch(/Laporan Pesanan/);
+    expect(dateBasisWarning([{ ...ledger.orders[0], confirmedAt: null, completedAt: null }], [{ ...ledger.finance[0], releasedAt: null, createdAt: null }], "confirmed")).toMatch(/Waktu Pesanan Dibuat/);
+
+    expect(listPeriods(ledger.orders, ledger.finance, "completed")).toEqual(["2026-11", "2026-09"]);
+    expect(listPeriods(ledger.orders, ledger.finance, "released")).toEqual(["2026-11", "2026-10", "2026-09"]);
+
+    const completed = snapshot({
+      orders: ledger.orders,
+      finance: ledger.finance,
+      ads: ledger.ads,
+      hppBySku: { SKU1: 15_000, SKU2: 8_000 },
+      claimed: [],
+      period: "2026-11",
+      basis: "completed",
+    });
+    expect(completed.orders).toBe(1);
+    expect(completed.income).toBe(85_100);
+    expect(completed.adSpend).toBe(0);
+    expect(completed.profit).toBe(55_100);
+
+    const released = snapshot({
+      orders: ledger.orders,
+      finance: ledger.finance,
+      ads: ledger.ads,
+      hppBySku: { SKU1: 15_000, SKU2: 8_000 },
+      claimed: [],
+      period: "2026-11",
+      basis: "released",
+    });
+    expect(released.income).toBe(85_100);
+    expect(released.profit).toBe(55_100);
+
+    const releasedOctober = snapshot({
+      orders: ledger.orders,
+      finance: ledger.finance,
+      ads: ledger.ads,
+      hppBySku: { SKU1: 15_000, SKU2: 8_000 },
+      claimed: [],
+      period: "2026-10",
+      basis: "released",
+    });
+    expect(releasedOctober.orders).toBe(0);
+    expect(releasedOctober.income).toBe(0);
   });
 
   it("parses a csv row with quotes", () => {

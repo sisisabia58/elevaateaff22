@@ -1,5 +1,5 @@
 import { formatMoney, marketFromHost } from "../shared/money";
-import { periodLabel, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { periodLabel, type DateBasis, type HppLine, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -38,6 +38,9 @@ export function ProfitBoard({
   onRange,
   lines = [],
   onHpp,
+  basis = "created",
+  onBasis,
+  basisWarning = null,
 }: {
   snapshot: ProfitSnapshot | null;
   hppCount: number;
@@ -51,6 +54,9 @@ export function ProfitBoard({
   onRange?: (range: ProfitWindow | null) => void;
   lines?: HppLine[];
   onHpp?: (sku: string, value: number) => void;
+  basis?: DateBasis;
+  onBasis?: (basis: DateBasis) => void;
+  basisWarning?: string | null;
 }) {
   return (
     <div className="ea-root">
@@ -65,6 +71,27 @@ export function ProfitBoard({
               <strong>Belum ada laporan.</strong>
               Jatuhkan ekspor pesanan, keuangan, atau iklan. HPP per SKU bisa menyusul dari CSV.
             </div>
+          )}
+          {onBasis && (
+            <label className="ea-basis">
+              Basis tanggal
+              <select
+                id="ea-date-basis"
+                aria-label="Basis tanggal"
+                value={basis}
+                onChange={(event) => onBasis(event.target.value as DateBasis)}
+              >
+                <option value="created">Waktu Pesanan Dibuat</option>
+                <option value="confirmed">Waktu Pesanan Dikonfirmasi</option>
+                <option value="completed">Waktu Pesanan Selesai</option>
+                <option value="released">Waktu Pelepasan Dana (Shopee)</option>
+              </select>
+            </label>
+          )}
+          {basisWarning && (
+            <p className="ea-warn" id="ea-date-basis-warn" role="status">
+              {basisWarning}
+            </p>
           )}
           {periods.length > 0 && onPeriod && (
             <div className="ea-chips" role="group" aria-label="Periode">

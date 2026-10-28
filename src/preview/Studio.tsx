@@ -13,7 +13,7 @@ import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
-import { hppLines, listPeriods, snapshot, studioLedger, type ProfitWindow } from "../shared/reports";
+import { dateBasisWarning, hppLines, listPeriods, snapshot, studioLedger, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
@@ -52,6 +52,7 @@ export function Studio() {
   const [ops, setOps] = useState(0);
   const [profitPeriod, setProfitPeriod] = useState<string | null>(null);
   const [profitRange, setProfitRange] = useState<ProfitWindow | null>(null);
+  const [profitBasis, setProfitBasis] = useState<DateBasis>("created");
   const [profitHpp, setProfitHpp] = useState<Record<string, number>>({ SKU1: 15_000, SKU2: 8_000 });
   const ledger = useMemo(() => studioLedger(), []);
   const [presets, setPresets] = useState<Record<string, RoasPreset>>({
@@ -514,15 +515,23 @@ export function Studio() {
                 operasional: ops,
                 period: profitRange?.from && profitRange?.to ? null : profitPeriod,
                 range: profitRange?.from && profitRange?.to ? profitRange : null,
+                basis: profitBasis,
               })}
               hppCount={Object.keys(profitHpp).length}
-              note="Contoh Tumbler bulan Oktober dan Sedotan bulan September. Iklan hanya menutup 1–28 Oktober."
+              note="Tumbler dibuat 15 Okt, dikonfirmasi 1 Nov, selesai 2 Nov, dana dilepas 5 Nov. Sedotan September, dana dilepas 15 Sep. Iklan hanya 1–28 Oktober."
               onOperasional={setOps}
-              periods={listPeriods(ledger.orders, ledger.finance)}
+              periods={listPeriods(ledger.orders, ledger.finance, profitBasis)}
               period={profitPeriod}
               onPeriod={setProfitPeriod}
               range={profitRange}
               onRange={setProfitRange}
+              basis={profitBasis}
+              onBasis={(next) => {
+                setProfitBasis(next);
+                const months = listPeriods(ledger.orders, ledger.finance, next);
+                if (profitPeriod && !months.includes(profitPeriod)) setProfitPeriod(null);
+              }}
+              basisWarning={dateBasisWarning(ledger.orders, ledger.finance, profitBasis)}
               lines={hppLines(ledger.orders, profitHpp)}
               onHpp={(sku, value) => setProfitHpp((current) => ({ ...current, [sku]: value }))}
             />
@@ -538,7 +547,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh ekspor keuangan: income bersih, alur dana, dan operasional.</li>
+            <li>Laba memakai contoh ekspor keuangan: income bersih, alur dana, periode, dan basis tanggal.</li>
           </ul>
           <div className="studio-tools">
             <button type="button" onClick={() => { setEmpty(false); setScoutOpen(true); setScene("search"); }}>

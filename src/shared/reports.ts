@@ -10,7 +10,12 @@ export type OrderRow = {
   shippingCost: number;
   cancelled: boolean;
   createdAt?: string | null;
+  confirmedAt?: string | null;
+  completedAt?: string | null;
+  releasedAt?: string | null;
 };
+
+export type DateBasis = "created" | "confirmed" | "completed" | "released";
 
 export type FinanceRow = {
   orderNo: string;
@@ -31,6 +36,10 @@ export type FinanceRow = {
   refund?: number;
   kompensasi?: number;
   createdAt?: string | null;
+  orderCreatedAt?: string | null;
+  confirmedAt?: string | null;
+  completedAt?: string | null;
+  releasedAt?: string | null;
 };
 
 export type MoneyFlow = {
@@ -183,7 +192,9 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
     const paid = col(headers, "ongkir dibayar", "ongkos kirim dibayar");
     const cost = col(headers, "ongkir ke kurir", "ongkos kirim ke");
     const status = col(headers, "status");
-    const created = col(headers, "waktu pesanan dibuat", "waktu pesanan dikonfirmasi", "waktu pesanan selesai");
+    const created = col(headers, "waktu pesanan dibuat");
+    const confirmed = col(headers, "waktu pesanan dikonfirmasi");
+    const completed = col(headers, "waktu pesanan selesai");
     for (const row of rows) {
       orders.push({
         orderNo: row[no] || "",
@@ -195,6 +206,8 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
         shippingCost: num(row[cost]),
         cancelled: /batal/i.test(row[status] || ""),
         createdAt: parseShopeeDate(row[created]),
+        confirmedAt: parseShopeeDate(row[confirmed]),
+        completedAt: parseShopeeDate(row[completed]),
       });
     }
   }
@@ -217,6 +230,9 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
     const refund = matching(headers, (header) => header.includes("pengembalian dana ke pembeli"));
     const kompensasi = matching(headers, (header) => header === "kompensasi" || header.includes("kompensasi"));
     const released = col(headers, "tanggal dana dilepaskan", "waktu pelepasan dana");
+    const orderCreated = col(headers, "waktu pesanan dibuat");
+    const confirmed = col(headers, "waktu pesanan dikonfirmasi");
+    const completed = col(headers, "waktu pesanan selesai");
     for (const row of rows) {
       const harga = num(row[price]);
       const parts = {
@@ -235,6 +251,7 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
       };
       const components = Object.values(parts).reduce((sum, value) => sum + value, 0);
       const reported = num(row[income]);
+      const releasedAt = parseShopeeDate(row[released]);
       finance.push({
         orderNo: row[no] || "",
         productPrice: harga,
@@ -242,7 +259,11 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
         income: components !== 0 ? harga + components : reported || harga,
         fees: parts.admin + parts.proses + parts.xtra + parts.layanan + parts.ams + parts.kampanye + parts.lainnya,
         ...parts,
-        createdAt: parseShopeeDate(row[released]),
+        createdAt: releasedAt,
+        releasedAt,
+        orderCreatedAt: parseShopeeDate(row[orderCreated]),
+        confirmedAt: parseShopeeDate(row[confirmed]),
+        completedAt: parseShopeeDate(row[completed]),
       });
     }
   }
@@ -274,11 +295,13 @@ export function snapshot(input: {
   operasional?: number;
   period?: string | null;
   range?: ProfitWindow | null;
+  basis?: DateBasis;
 }): ProfitSnapshot {
   const window = input.range?.from && input.range?.to ? input.range : input.period ? monthWindow(input.period) : null;
-  const orderDate = new Map(input.orders.map((row) => [row.orderNo, row.createdAt || null]));
-  const orders = input.orders.filter((row) => inWindow(row.createdAt, window));
-  const finance = input.finance.filter((row) => inWindow(row.createdAt || orderDate.get(row.orderNo) || null, window));
+  const basis = input.basis || "created";
+  const scoped = applyBasis(input.orders, input.finance, basis, window);
+  const orders = scoped.orders;
+  const finance = scoped.finance;
   const active = orders.filter((row) => !row.cancelled && row.orderNo);
   const cancelled = orders.filter((row) => row.cancelled).length;
   const omzet = active.reduce((sum, row) => sum + row.price, 0);
@@ -348,11 +371,81 @@ export function periodLabel(period: string): string {
   return `${MONTHS[Number(month) - 1] || period} ${year}`;
 }
 
-export function listPeriods(orders: OrderRow[], finance: FinanceRow[]): string[] {
+export function listPeriods(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis = "created"): string[] {
   const months = new Set<string>();
-  for (const row of orders) if (row.createdAt) months.add(row.createdAt.slice(0, 7));
-  for (const row of finance) if (row.createdAt) months.add(row.createdAt.slice(0, 7));
+  for (const row of orders) {
+    const date = orderBasisDate(row, basis);
+    if (date) months.add(date.slice(0, 7));
+  }
+  for (const row of finance) {
+    const date = financeBasisDate(row, basis);
+    if (date) months.add(date.slice(0, 7));
+  }
   return [...months].sort().reverse();
+}
+
+export function dateBasisWarning(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis): string | null {
+  if (basis === "created") return null;
+  const ordersHave = orders.some((row) => orderHasBasis(row, basis));
+  const financeHave = finance.some((row) => financeHasBasis(row, basis));
+  if (ordersHave && !financeHave && finance.length) {
+    return "⚠️ Kolom ini tidak ada di Laporan Keuangan — data Income/Biaya Shopee otomatis dicocokkan lewat No. Pesanan dari Laporan Pesanan yang lolos filter";
+  }
+  if (financeHave && !ordersHave && orders.length) {
+    return "⚠️ Kolom ini tidak ada di Laporan Pesanan — data pesanan otomatis dicocokkan lewat No. Pesanan dari Laporan Keuangan yang lolos filter";
+  }
+  if (!ordersHave && !financeHave && (orders.length || finance.length)) {
+    return "⚠️ Kolom ini tidak ada di file yang diupload — pakai Waktu Pesanan Dibuat sebagai gantinya";
+  }
+  return null;
+}
+
+function orderHasBasis(row: OrderRow, basis: DateBasis): boolean {
+  if (basis === "confirmed") return Boolean(row.confirmedAt);
+  if (basis === "completed") return Boolean(row.completedAt);
+  if (basis === "released") return Boolean(row.releasedAt);
+  return Boolean(row.createdAt);
+}
+
+function financeHasBasis(row: FinanceRow, basis: DateBasis): boolean {
+  if (basis === "confirmed") return Boolean(row.confirmedAt);
+  if (basis === "completed") return Boolean(row.completedAt);
+  if (basis === "released") return Boolean(row.releasedAt || row.createdAt);
+  return Boolean(row.orderCreatedAt);
+}
+
+function orderBasisDate(row: OrderRow, basis: DateBasis): string | null {
+  if (basis === "confirmed") return row.confirmedAt || row.createdAt || null;
+  if (basis === "completed") return row.completedAt || row.createdAt || null;
+  if (basis === "released") return row.releasedAt || row.createdAt || null;
+  return row.createdAt || null;
+}
+
+function financeBasisDate(row: FinanceRow, basis: DateBasis): string | null {
+  if (basis === "released") return row.releasedAt || row.createdAt || row.orderCreatedAt || null;
+  if (basis === "confirmed") return row.confirmedAt || row.orderCreatedAt || null;
+  if (basis === "completed") return row.completedAt || row.orderCreatedAt || null;
+  return row.orderCreatedAt || null;
+}
+
+function applyBasis(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis, window: ProfitWindow | null): { orders: OrderRow[]; finance: FinanceRow[] } {
+  if (!window) return { orders, finance };
+  const ordersHave = orders.some((row) => orderHasBasis(row, basis));
+  const financeHave = finance.some((row) => financeHasBasis(row, basis));
+  if (ordersHave && !financeHave && finance.length) {
+    const nextOrders = orders.filter((row) => inWindow(orderBasisDate(row, basis), window));
+    const ids = new Set(nextOrders.map((row) => row.orderNo).filter(Boolean));
+    return { orders: nextOrders, finance: finance.filter((row) => ids.has(row.orderNo)) };
+  }
+  if (financeHave && !ordersHave && orders.length) {
+    const nextFinance = finance.filter((row) => inWindow(financeBasisDate(row, basis), window));
+    const ids = new Set(nextFinance.map((row) => row.orderNo).filter(Boolean));
+    return { orders: orders.filter((row) => ids.has(row.orderNo)), finance: nextFinance };
+  }
+  return {
+    orders: orders.filter((row) => inWindow(orderBasisDate(row, basis), window)),
+    finance: finance.filter((row) => inWindow(financeBasisDate(row, basis), window)),
+  };
 }
 
 function inWindow(date: string | null | undefined, window: ProfitWindow | null): boolean {
@@ -408,11 +501,35 @@ export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads
   );
   return {
     orders: [
-      { orderNo: "A1", sku: "SKU1", name: "Tumbler", qty: 2, price: 100_000, shippingPaid: 0, shippingCost: 0, cancelled: false, createdAt: "2026-10-15" },
-      { orderNo: "B1", sku: "SKU2", name: "Sedotan", qty: 1, price: 20_000, shippingPaid: 0, shippingCost: 0, cancelled: false, createdAt: "2026-09-10" },
+      {
+        orderNo: "A1",
+        sku: "SKU1",
+        name: "Tumbler",
+        qty: 2,
+        price: 100_000,
+        shippingPaid: 0,
+        shippingCost: 0,
+        cancelled: false,
+        createdAt: "2026-10-15",
+        confirmedAt: "2026-11-01",
+        completedAt: "2026-11-02",
+      },
+      {
+        orderNo: "B1",
+        sku: "SKU2",
+        name: "Sedotan",
+        qty: 1,
+        price: 20_000,
+        shippingPaid: 0,
+        shippingCost: 0,
+        cancelled: false,
+        createdAt: "2026-09-10",
+        confirmedAt: "2026-09-11",
+        completedAt: "2026-09-20",
+      },
     ],
     finance: [
-      ...base.finance.map((row) => ({ ...row, createdAt: "2026-10-15" })),
+      ...base.finance.map((row) => ({ ...row, createdAt: "2026-10-15", releasedAt: "2026-11-05" })),
       {
         orderNo: "B1",
         productPrice: 20_000,
@@ -432,6 +549,7 @@ export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads
         refund: 0,
         kompensasi: 0,
         createdAt: "2026-09-10",
+        releasedAt: "2026-09-15",
       },
     ],
     ads: [{ name: "Tumbler", spend: 10_000, gmv: 40_000, orders: 2, periodFrom: "2026-10-01", periodTo: "2026-10-28" }],

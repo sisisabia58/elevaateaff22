@@ -4,14 +4,14 @@ import * as XLSX from "xlsx";
 import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { downloadText } from "../shared/csv";
-import { hppLines, listPeriods, parseCsv, parseExportGrid, parseHppCsv, snapshot, type ProfitWindow } from "../shared/reports";
+import { dateBasisWarning, hppLines, listPeriods, parseCsv, parseExportGrid, parseHppCsv, snapshot, type DateBasis, type ProfitWindow } from "../shared/reports";
 import { ProfitBoard } from "../ui/ProfitBoard";
 
-const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat
-A1,SKU1,Tumbler,2,80000,5000,12000,Selesai,2026-10-15 09:00
-A2,SKU1,Tumbler,1,40000,0,0,Batal,2026-10-16 09:00`;
-const SAMPLE_FINANCE = `No. Pesanan,Harga Produk,Total Penghasilan,Biaya Administrasi,Biaya Layanan
-A1,80000,75000,-4000,-1000`;
+const SAMPLE_ORDERS = `No. Pesanan,Nomor Referensi SKU,Nama Produk,Jumlah,Harga Produk,Ongkir dibayar pembeli,Ongkir ke kurir,Status Pesanan,Waktu Pesanan Dibuat,Waktu Pesanan Dikonfirmasi,Waktu Pesanan Selesai
+A1,SKU1,Tumbler,2,80000,5000,12000,Selesai,2026-10-15 09:00,2026-11-01 09:00,2026-11-02 09:00
+A2,SKU1,Tumbler,1,40000,0,0,Batal,2026-10-16 09:00,2026-10-16 10:00,2026-10-16 11:00`;
+const SAMPLE_FINANCE = `No. Pesanan,Harga Produk,Total Penghasilan,Biaya Administrasi,Biaya Layanan,Waktu Pelepasan Dana
+A1,80000,75000,-4000,-1000,2026-11-05`;
 const SAMPLE_ADS = `Periode,01/10/2026 - 28/10/2026
 Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
 Tumbler,10000,40000,2`;
@@ -35,6 +35,7 @@ function DashboardApp() {
   const [reading, setReading] = useState(false);
   const [period, setPeriod] = useState<string | null>(null);
   const [range, setRange] = useState<ProfitWindow | null>(null);
+  const [basis, setBasis] = useState<DateBasis>("created");
 
   useEffect(() => {
     void loadBooks().then(setBooks);
@@ -54,8 +55,9 @@ function DashboardApp() {
       operasional: books.operasional || 0,
       period: activeRange ? null : period,
       range: activeRange,
+      basis,
     });
-  }, [books, period, range]);
+  }, [books, period, range, basis]);
 
   async function persist(next: Books, message: string | null) {
     setBooks(next);
@@ -151,11 +153,18 @@ function DashboardApp() {
         snapshot={view}
         hppCount={Object.keys(books.hpp).length}
         note={note}
-        periods={listPeriods(books.orders, books.finance)}
+        periods={listPeriods(books.orders, books.finance, basis)}
         period={period}
         onPeriod={setPeriod}
         range={range}
         onRange={setRange}
+        basis={basis}
+        onBasis={(next) => {
+          setBasis(next);
+          const months = listPeriods(books.orders, books.finance, next);
+          if (period && !months.includes(period)) setPeriod(null);
+        }}
+        basisWarning={dateBasisWarning(books.orders, books.finance, basis)}
         lines={hppLines(books.orders, books.hpp)}
         onHpp={(sku, value) => {
           void persist({ ...books, hpp: { ...books.hpp, [sku]: value } }, null);

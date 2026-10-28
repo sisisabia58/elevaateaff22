@@ -432,6 +432,9 @@ export const elevateCss = `
 }
 .ea-options h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
 .ea-options .lede { color: #6d655b; margin: 0 0 18px; }
+.ea-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; font-size: 12px; font-weight: 700; color: #6d655b; }
+.ea-basis select { border: 1px solid #e4ddd2; border-radius: 8px; padding: 6px 8px; background: #fff; font: inherit; font-weight: 600; color: #1c1915; max-width: 100%; }
+.ea-warn { margin: 0 0 12px; font-size: 12px; line-height: 1.45; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 10px; }
 .ea-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .ea-chips button { border: 1px solid #e4ddd2; background: #fff; border-radius: 999px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
 .ea-chips button[aria-pressed="true"] { background: #1c1915; color: #fff; border-color: #1c1915; }
