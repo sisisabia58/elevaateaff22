@@ -450,10 +450,31 @@ export const elevateCss = `
 .ea-chart h2 { margin: 0; font-size: 14px; }
 .ea-chart .sub { margin: 2px 0 10px; color: #6d655b; font-size: 11px; }
 .ea-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.ea-vbars { display: flex; align-items: flex-end; gap: 6px; height: 120px; }
+.ea-daily-legend { display: flex; gap: 14px; margin: 0 0 8px; font-size: 10px; color: #6d655b; }
+.ea-daily-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ea-daily-legend i.omzet { width: 10px; height: 10px; background: #dbeafe; border: 1.5px solid #2563eb; border-radius: 2px; }
+.ea-daily-legend i.orders { width: 14px; height: 0; border-top: 2px solid #7c3aed; }
+.ea-plot { position: relative; }
+.ea-vbars { display: flex; align-items: flex-end; gap: 6px; height: 140px; }
 .ea-vbar { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; }
 .ea-vbar i { display: block; width: 100%; background: #dbeafe; border: 1.5px solid #2563eb; border-radius: 4px 4px 0 0; }
-.ea-vbar b, .ea-vbar span { font-size: 10px; font-weight: 600; color: #6d655b; }
+.ea-bar-labels { display: flex; gap: 6px; margin-top: 4px; }
+.ea-bar-labels span { flex: 1; min-width: 0; text-align: center; font-size: 10px; font-weight: 600; color: #6d655b; }
+.ea-order-line { position: absolute; left: 0; right: 0; top: 0; height: 140px; width: 100%; pointer-events: none; }
+.ea-order-dots { position: absolute; left: 0; right: 0; top: 0; height: 140px; pointer-events: none; }
+.ea-order-dots span { position: absolute; transform: translate(-50%, 4px); color: #7c3aed; font-size: 10px; font-weight: 700; }
+.ea-donut { display: flex; align-items: center; gap: 16px; min-height: 180px; }
+.ea-donut svg { width: 180px; height: 180px; flex: none; }
+.ea-donut ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; flex: 1; }
+.ea-donut li { display: grid; grid-template-columns: 10px 1fr auto; gap: 6px; align-items: center; font-size: 11px; }
+.ea-donut i { width: 10px; height: 10px; border-radius: 2px; }
+.ea-donut b { font-variant-numeric: tabular-nums; }
+.ea-sheet h2 { margin: 0 0 2px; font-size: 15px; }
+.ea-sheet .sub { margin: 0 0 12px; color: #6d655b; font-size: 11px; }
+@media (max-width: 640px) {
+  .ea-donut { flex-direction: column; align-items: stretch; }
+  .ea-donut svg { margin: 0 auto; }
+}
 .ea-hbar { display: grid; grid-template-columns: minmax(88px, 34%) 1fr auto; gap: 8px; align-items: center; margin-top: 6px; font-size: 12px; }
 .ea-hbar span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ea-hbar i { display: block; height: 8px; background: #2563eb; border-radius: 99px; }

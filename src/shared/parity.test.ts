@@ -205,6 +205,7 @@ describe("shopee exports", () => {
     const result = demoProfitSnapshot(5000);
     expect(result.flow.pengiriman).toBe(-3000);
     expect(result.flow.admin + result.flow.proses + result.flow.xtra + result.flow.layanan + result.flow.ams + result.flow.kampanye + result.flow.lainnya + result.flow.pengiriman).toBe(-13600);
+    expect(result.charts.feeTotal).toBe(13_600);
     expect(flowShare(result.flow.admin, result.flow.harga)).toBe("5.0%");
     expect(flowShare(result.flow.pengiriman, result.flow.harga)).toBe("3.0%");
     expect(flowShare(result.income, 0)).toBeNull();

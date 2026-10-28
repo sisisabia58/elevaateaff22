@@ -148,6 +148,8 @@ export type ProfitCharts = {
   daily: Array<{ date: string; label: string; omzet: number; orders: number }>;
   dailyLabel: string;
   fees: Array<{ label: string; amount: number }>;
+  /** abs(K.total_biaya). The doughnut slices stay per-component. */
+  feeTotal: number;
   payments: Array<{ label: string; count: number }>;
   shipping: Array<{ label: string; count: number }>;
   provinces: Array<{ label: string; omzet: number; orders: number }>;
@@ -598,6 +600,7 @@ export function profitCharts(orders: OrderRow[], flow: MoneyFlow): ProfitCharts 
     daily,
     dailyLabel: daily.length ? `${daily[0].date} s/d ${daily[daily.length - 1].date}` : "—",
     fees,
+    feeTotal: Math.abs(flow.admin + flow.proses + flow.xtra + flow.layanan + flow.ams + flow.kampanye + flow.lainnya + flow.pengiriman),
     payments: [...payments.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8).map(([label, count]) => ({ label, count })),
     shipping: [...shipping.entries()].sort((left, right) => right[1] - left[1]).map(([label, count]) => ({ label, count })),
     provinces: [...provinces.entries()]

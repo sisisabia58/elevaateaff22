@@ -328,7 +328,7 @@ export function ProfitBoard({
               {formatMoney(snapshot.income, market)} − {formatMoney(snapshot.hpp, market)} (HPP) − {formatMoney(snapshot.iklan, market)} (Iklan) − {formatMoney(snapshot.operasional, market)} (Ops) = {formatMoney(snapshot.profit, market)}
             </p>
           )}
-          {snapshot && <ProfitChartsView charts={snapshot.charts} />}
+          {snapshot && <ProfitChartsView charts={snapshot.charts} financeLoaded={snapshot.financeLoaded} />}
           {snapshot && <AdDetailView detail={snapshot.campaigns} />}
           {snapshot && (onOperasional || onIklan) && (
             <div className="ea-cost-fields">
@@ -373,7 +373,8 @@ export function ProfitBoard({
           )}
           {snapshot && snapshot.financeLoaded && (
             <div className="ea-sheet" id="flow-content">
-              <div className="ea-kicker">Alur dana</div>
+              <h2>Alur Dana: Omzet → Net Income Marketplace</h2>
+              <p className="sub">Rincian semua potongan dari harga produk sampai income bersih dari Shopee</p>
               <table>
                 <tbody>
                   <tr>
@@ -957,43 +958,106 @@ function AdDetailView({ detail }: { detail: AdDetail }) {
   );
 }
 
-function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
+const CHART_PAL = ["#2563eb", "#7c3aed", "#0d9488", "#d97706", "#dc2626", "#db2777", "#16a34a", "#f97316", "#0891b2", "#65a30d"];
+
+function donutPath(start: number, end: number): string {
+  const cx = 60;
+  const cy = 60;
+  const outer = 46;
+  const inner = 28;
+  const ring = (a0: number, a1: number) => {
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const point = (angle: number, radius: number) => [cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius];
+    const [x1, y1] = point(a0, outer);
+    const [x2, y2] = point(a1, outer);
+    const [x3, y3] = point(a1, inner);
+    const [x4, y4] = point(a0, inner);
+    return `M ${x1} ${y1} A ${outer} ${outer} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${inner} ${inner} 0 ${large} 0 ${x4} ${y4} Z`;
+  };
+  if (end - start >= Math.PI * 2 - 1e-3) {
+    const mid = start + Math.PI;
+    return `${ring(start, mid)} ${ring(mid, end - 1e-4)}`;
+  }
+  return ring(start, end);
+}
+
+function Doughnut({ items, formatValue }: { items: Array<{ label: string; value: number }>; formatValue: (value: number) => string }) {
+  const total = items.reduce((sum, item) => sum + item.value, 0) || 1;
+  let angle = -Math.PI / 2;
+  const slices = items.map((item, index) => {
+    const sweep = (item.value / total) * Math.PI * 2;
+    const start = angle;
+    angle += sweep;
+    return { ...item, start, end: angle, color: CHART_PAL[index % CHART_PAL.length] };
+  });
+  return (
+    <div className="ea-donut">
+      <svg viewBox="0 0 120 120" role="img" aria-label="Diagram lingkaran">
+        {slices.map((slice) => (
+          <path key={slice.label} d={donutPath(slice.start, slice.end)} fill={slice.color} fillOpacity="0.2" stroke={slice.color} strokeWidth="2" />
+        ))}
+      </svg>
+      <ul>
+        {slices.map((slice) => (
+          <li key={slice.label}>
+            <i style={{ background: slice.color }} />
+            <span>{slice.label}</span>
+            <b>{formatValue(slice.value)}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ProfitChartsView({ charts, financeLoaded }: { charts: ProfitCharts; financeLoaded: boolean }) {
   const maxDaily = Math.max(1, ...charts.daily.map((day) => day.omzet));
+  const maxOrders = Math.max(1, ...charts.daily.map((day) => day.orders));
   const maxPay = Math.max(1, ...charts.payments.map((row) => row.count));
-  const maxShip = Math.max(1, ...charts.shipping.map((row) => row.count));
   const maxProv = Math.max(1, ...charts.provinces.map((row) => row.omzet));
-  const maxFee = Math.max(1, ...charts.fees.map((row) => row.amount));
+  const orderLine = charts.daily.map((day, index) => `${index + 0.5},${100 - (day.orders / maxOrders) * 78}`).join(" ");
   return (
     <div className="ea-charts">
       {charts.daily.length > 0 && (
         <section className="ea-chart" aria-label="Tren Omzet Harian">
           <h2>Tren Omzet Harian</h2>
           <p className="sub">{charts.dailyLabel}</p>
-          <div className="ea-vbars">
-            {charts.daily.map((day) => (
-              <div key={day.date} className="ea-vbar" title={`${day.orders} order`}>
-                <b>{day.orders}</b>
-                <i style={{ height: `${Math.max(8, (day.omzet / maxDaily) * 88)}px` }} />
-                <span>{day.label}</span>
-              </div>
-            ))}
+          <div className="ea-daily-legend">
+            <span><i className="omzet" /> Omzet (Rp)</span>
+            <span><i className="orders" /> Jumlah Order</span>
+          </div>
+          <div className="ea-plot">
+            <div className="ea-vbars">
+              {charts.daily.map((day) => (
+                <div key={day.date} className="ea-vbar" title={`${day.orders} order`}>
+                  <i style={{ height: `${Math.max(8, (day.omzet / maxDaily) * 88)}%` }} />
+                </div>
+              ))}
+            </div>
+            <svg className="ea-order-line" viewBox={`0 0 ${charts.daily.length} 100`} preserveAspectRatio="none" aria-hidden="true">
+              <polyline points={orderLine} fill="none" stroke="#7c3aed" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+            </svg>
+            <div className="ea-order-dots">
+              {charts.daily.map((day, index) => (
+                <span key={day.date} style={{ left: `${((index + 0.5) / charts.daily.length) * 100}%`, bottom: `${(day.orders / maxOrders) * 78}%` }}>{day.orders}</span>
+              ))}
+            </div>
+            <div className="ea-bar-labels">
+              {charts.daily.map((day) => (
+                <span key={day.date}>{day.label}</span>
+              ))}
+            </div>
           </div>
         </section>
       )}
       <div className="ea-split">
-        {charts.fees.length > 0 && (
-          <section className="ea-chart" aria-label="Breakdown Biaya Marketplace">
-            <h2>Breakdown Biaya Marketplace</h2>
-            <p className="sub">Total: {formatMoney(charts.fees.reduce((sum, row) => sum + row.amount, 0), market)}</p>
-            {charts.fees.map((row) => (
-              <div key={row.label} className="ea-hbar">
-                <span>{row.label}</span>
-                <i style={{ width: `${(row.amount / maxFee) * 100}%` }} />
-                <b>{formatMoney(row.amount, market)}</b>
-              </div>
-            ))}
-          </section>
-        )}
+        <section className="ea-chart" aria-label="Breakdown Biaya Marketplace">
+          <h2>Breakdown Biaya Marketplace</h2>
+          <p className="sub" id="biaya-sub">{financeLoaded ? `Total: ${formatMoney(charts.feeTotal, market)}` : "Data keuangan belum diimport"}</p>
+          {financeLoaded && charts.fees.length > 0 && (
+            <Doughnut items={charts.fees.map((row) => ({ label: row.label, value: row.amount }))} formatValue={(value) => formatMoney(value, market)} />
+          )}
+        </section>
         {charts.payments.length > 0 && (
           <section className="ea-chart" aria-label="Metode Pembayaran">
             <h2>Metode Pembayaran</h2>
@@ -1026,13 +1090,7 @@ function ProfitChartsView({ charts }: { charts: ProfitCharts }) {
           <section className="ea-chart" aria-label="Jasa Pengiriman">
             <h2>Jasa Pengiriman</h2>
             <p className="sub">Distribusi per order</p>
-            {charts.shipping.map((row) => (
-              <div key={row.label} className="ea-hbar">
-                <span>{row.label}</span>
-                <i style={{ width: `${(row.count / maxShip) * 100}%` }} />
-                <b>{row.count}</b>
-              </div>
-            ))}
+            <Doughnut items={charts.shipping.map((row) => ({ label: row.label, value: row.count }))} formatValue={(value) => `${value} order`} />
           </section>
         )}
       </div>
