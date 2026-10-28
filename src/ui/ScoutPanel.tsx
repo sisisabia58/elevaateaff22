@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatMoney, formatRate } from "../shared/money";
+import type { MarketAiScope } from "../shared/market-brief";
 import type { HistogramBucket, ShopSummary } from "../shared/research";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 import { AnalisaTable } from "./AnalisaTable";
@@ -68,6 +69,7 @@ export function ScoutPanel({
   onCategory,
   onShopResearch,
   marketTitle,
+  onMarketAi,
 }: {
   title: string;
   items: ScoutItem[];
@@ -102,9 +104,15 @@ export function ScoutPanel({
   onCategory?: () => void;
   onShopResearch?: () => void;
   marketTitle?: string;
+  onMarketAi?: (scope: MarketAiScope) => void;
 }) {
   const [analisa, setAnalisa] = useState(initialAnalisa || Boolean(marketTitle));
   const [collapsed, setCollapsed] = useState(false);
+  const aiScope = useRef<MarketAiScope>({ items, filterLabel: null });
+  const aiTitle =
+    marketTitle === "Riset toko"
+      ? "Analisa AI portofolio toko ini (konsentrasi omset, listing zombie, peluang musiman, dst.)"
+      : "Analisa AI level kategori -- pola dari performa teratas, whitespace harga, skor peluang masuk kategori. Kalau lagi filter 1 bucket chart, analisanya ngikutin filter itu.";
   const shopCount = new Set(items.map((item) => item.shopId || item.shopName).filter(Boolean)).size;
   const visible = adsOnly ? items.filter((item) => item.isAd) : items;
   const ordered = sortScout(visible, commissions, sort);
@@ -149,7 +157,14 @@ export function ScoutPanel({
           </div>
         )}
         {marketTitle && !collapsed && (
-          <p className="ea-mkt-sub">Berdasarkan {items.length} produk dari {shopCount || "-"} toko</p>
+          <div className="ea-mkt-subrow">
+            <p className="ea-mkt-sub">Berdasarkan {items.length} produk dari {shopCount || "-"} toko</p>
+            {onMarketAi && (
+              <button id="ea-market-ai-btn" className="ea-ai-btn" type="button" onClick={() => onMarketAi?.(aiScope.current)} disabled={running} title={running ? "Tunggu 'Lihat lebih' selesai dulu -- biar analisanya berdasarkan data yang udah lengkap, bukan yang masih setengah jalan dimuat." : aiTitle}>
+                Analisa AI
+              </button>
+            )}
+          </div>
         )}
         {!collapsed && !marketTitle && summary && (
           <div className="ea-summary">
@@ -252,6 +267,9 @@ export function ScoutPanel({
                 onSoldOut={onSoldOut}
                 onCategory={onCategory}
                 onShopResearch={onShopResearch}
+                onAiScope={(scope) => {
+                  aiScope.current = scope;
+                }}
                 surface={marketTitle === "Riset toko" ? "shop" : marketTitle ? "search" : undefined}
               />
             )}

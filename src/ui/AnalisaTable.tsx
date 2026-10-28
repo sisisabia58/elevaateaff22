@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, searchOverview, shopAgeBucket, shopOverview, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
+import { aiFilterLabel, type MarketAiScope } from "../shared/market-brief";
 import { analyticsCsv, downloadText } from "../shared/csv";
 import { formatAgeShort, formatBigMoney, formatMoney, formatRate, formatShortMoney } from "../shared/money";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
@@ -121,6 +122,7 @@ export function AnalisaTable({
   onSoldOut,
   onCategory,
   onShopResearch,
+  onAiScope,
   surface,
 }: {
   items: ScoutItem[];
@@ -138,6 +140,7 @@ export function AnalisaTable({
   onSoldOut?: () => void;
   onCategory?: () => void;
   onShopResearch?: () => void;
+  onAiScope?: (scope: MarketAiScope) => void;
   surface?: "search" | "shop";
 }) {
   const [query, setQuery] = useState("");
@@ -172,6 +175,12 @@ export function AnalisaTable({
       ? searched
       : searched.filter((item) => itemBucketIndex(item, bars, dimension, now, shopCtimes) === bucket);
   const dimensionLabel = dimension === "age" ? "Sebaran umur listing" : dimension === "shopAge" ? "Sebaran umur toko" : "Sebaran harga";
+  const filterLabel = bucket != null && bars[bucket] ? aiFilterLabel(bars[bucket], dimension, market) : null;
+  const scopedItems = bucket == null ? items : ranged;
+  const scopeKey = `${filterLabel ?? ""}|${scopedItems.map((item) => item.itemId).join(",")}`;
+  useEffect(() => {
+    onAiScope?.({ items: scopedItems, filterLabel });
+  }, [scopeKey]);
   const ordered = [...ranged].sort((a, b) => {
     const left = sortValue(a);
     const right = sortValue(b);

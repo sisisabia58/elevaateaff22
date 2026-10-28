@@ -124,6 +124,43 @@ export const elevateCss = `
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
 }
 .ea-market-pill span { font-weight: 450; opacity: 0.85; }
+.ea-mkt-subrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-right: 14px; }
+.ea-mkt-subrow .ea-mkt-sub { flex: 1; }
+.ea-ai-btn { border: 0; border-radius: 999px; background: #1d4ed8; color: #fff; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+.ea-ai-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 16px;
+}
+.ea-ai-card {
+  width: min(560px, 92vw);
+  max-height: 82vh;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.ea-ai-card header { display: flex; align-items: flex-start; gap: 8px; padding: 16px 16px 12px; border-bottom: 1px solid rgba(148, 163, 184, 0.25); }
+.ea-ai-card h2 { margin: 0; font-size: 16px; }
+.ea-ai-card header p { margin: 2px 0 0; color: #94a3b8; font-size: 12px; }
+.ea-ai-card header > div { flex: 1; }
+.ea-ai-card header button { border: 0; border-radius: 8px; background: #1e293b; color: #e2e8f0; padding: 6px 8px; }
+.ea-ai-body { overflow: auto; padding: 16px; line-height: 1.55; }
+.ea-ai-body p { margin: 0 0 8px; }
+.ea-ai-body ul, .ea-ai-body ol { margin: 0 0 8px; padding-left: 18px; }
+.ea-ai-state { text-align: center; padding: 28px 8px; }
+.ea-ai-state button { margin-top: 12px; border: 0; border-radius: 10px; background: #6366f1; color: #fff; padding: 8px 12px; font-weight: 700; }
+.ea-ai-card footer { padding: 10px 16px 14px; color: #94a3b8; font-size: 11px; border-top: 1px solid rgba(148, 163, 184, 0.2); }
 .ea-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; margin: 8px 0 4px; }
 .ea-bar { flex: 1; background: transparent; border: 0; padding: 0; min-height: 8px; display: flex; align-items: flex-end; }
 .ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; }

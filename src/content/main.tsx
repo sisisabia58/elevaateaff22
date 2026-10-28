@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { pageAnalytics, shopRelation } from "../shared/analytics";
+import { shopRelation } from "../shared/analytics";
 import { aiItemInfo, buildCaptions, buttonLabels, isOwnShop, parseThreadParts, reviewFeature, type AiPanel, type ThreadAngle } from "../shared/captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { zipImages } from "../shared/images";
 import { formatMoney, formatRate, marketFromHost } from "../shared/money";
+import { marketDataBlock, shopDataBlock, type MarketAiScope } from "../shared/market-brief";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { callAiProxy, callFeatureProxy, pingFeature, reportShopeeAccount } from "../shared/server";
 import { loadSettings } from "../shared/settings";
@@ -17,6 +18,7 @@ import { copyText } from "../ui/copy";
 import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { RankingList } from "../ui/RankingList";
+import { MarketAiDialog, type MarketAiPhase } from "../ui/MarketAiDialog";
 import { MarketPill, ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { AffiliateClient } from "./affiliate-client";
 
@@ -105,6 +107,11 @@ function Overlay() {
   const [cardClosed, setCardClosed] = useState(false);
   const [scoutClosed, setScoutClosed] = useState(false);
   const [floatOpen, setFloatOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiSubtitle, setAiSubtitle] = useState("-");
+  const [aiPhase, setAiPhase] = useState<MarketAiPhase>("loading");
+  const [aiText, setAiText] = useState("");
+  const aiRun = useRef<() => void>(() => undefined);
   const [sort, setSort] = useState<ScoutSort>("commission");
   const [adsOnly, setAdsOnly] = useState(false);
   const [checkLabel, setCheckLabel] = useState("Cek komisi asli");
@@ -769,37 +776,50 @@ function Overlay() {
       .catch((error: unknown) => setDetail(error instanceof Error ? error.message : "Zip gagal."));
   }
 
-  function researchPayload(list: ScoutItem[]) {
-    const page = pageAnalytics(list);
-    const names = [...list]
-      .sort((a, b) => (b.monthlySold ?? b.sold ?? 0) - (a.monthlySold ?? a.sold ?? 0))
-      .slice(0, 8)
-      .map((item) => item.name);
-    const relation = kind === "shop" ? readShopRelation() : null;
-    return {
-      summary: page,
-      names,
-      counts: page.count,
-      averages: { price: page.averagePrice, trend: page.averageTrend, soldPerMonth: page.averageSoldPerMonth },
-      relation,
+  function openMarketAi(scope?: MarketAiScope) {
+    const shop = kind === "shop";
+    const list = scope?.items ?? itemsRef.current;
+    const filterLabel = scope?.filterLabel ?? null;
+    const own = shop && readShopRelation() === "Toko sendiri";
+    const pageLine = kind === "category" ? `Kategori: ${scoutLabel}` : `Keyword: ${scoutLabel}`;
+    const subtitle = shop
+      ? `${own ? "Toko sendiri" : "Toko kompetitor"} — ${list[0]?.shopName || scoutLabel}`
+      : `${pageLine}${filterLabel ? ` (difilter: ${filterLabel})` : ""}`;
+    const run = () => {
+      if (!settings) return;
+      setAiOpen(true);
+      setAiSubtitle(subtitle);
+      if (!list.length) {
+        setAiPhase("error");
+        setAiText(shop ? 'Belum ada data produk buat dianalisa. Coba "Refresh data" dulu.' : 'Belum ada data produk buat dianalisa. Coba "Lihat lebih" dulu.');
+        return;
+      }
+      if (!settings.geminiApiKey.trim()) {
+        setAiPhase("nokey");
+        setAiText("");
+        return;
+      }
+      setAiPhase("loading");
+      const feature = shop ? "shop_research" : "market_research";
+      const payload = shop
+        ? { dataBlock: shopDataBlock(list, own, market), isOwnShop: own }
+        : {
+            dataBlock: marketDataBlock(
+              list,
+              { pageType: kind === "category" ? "category" : "search", keyword: scoutLabel, categoryLabel: scoutLabel, filterLabel },
+              market,
+            ),
+            filterLabel,
+            pageType: kind === "category" ? "category" : "search",
+          };
+      void pingFeature(feature);
+      void callAiProxy(feature, payload, settings.geminiApiKey, settings.geminiModel).then((result) => {
+        setAiPhase(result.ok ? "result" : "error");
+        setAiText(result.ok ? result.text : result.error);
+      });
     };
-  }
-
-  function localResearchNote(list: ScoutItem[]) {
-    const page = pageAnalytics(list);
-    const trend = page.averageTrend === null ? "trend belum cukup" : `trend rata-rata ${page.averageTrend.toFixed(0)}%`;
-    const monthly = page.averageSoldPerMonth === null ? "terjual per bulan belum cukup" : `terjual per bulan ${Math.round(page.averageSoldPerMonth).toLocaleString("id-ID")}`;
-    const relation = kind === "shop" ? readShopRelation() : null;
-    return `${page.count} produk, ${page.totalSold.toLocaleString("id-ID")} terjual, harga rata-rata ${formatMoney(page.averagePrice, market)}, ${monthly}, ${trend}${relation ? `. ${relation}` : ""}.`;
-  }
-
-  async function askResearch(feature: string) {
-    if (!settings) return;
-    const list = itemsRef.current;
-    setTaskNote("Menghubungi Gemini…");
-    void pingFeature(feature);
-    const result = await callAiProxy(feature, researchPayload(list), settings.geminiApiKey, settings.geminiModel);
-    setTaskNote(result.ok ? result.text : `${result.error} ${localResearchNote(list)}`);
+    aiRun.current = run;
+    run();
   }
 
   async function copyAffiliateLink() {
@@ -936,15 +956,14 @@ function Overlay() {
       onDeepen={() => void deepen()}
       onDeepenOne={(item) => void deepenOne(item)}
       onPaginate={() => void paginate()}
-      onShopNote={kind === "shop" ? () => void askResearch("shop_research") : undefined}
+      onShopNote={kind === "shop" ? () => openMarketAi() : undefined}
+      onMarketAi={(scope) => openMarketAi(kind === "shop" ? undefined : scope)}
       taskNote={taskNote}
       shopCtimes={shopCtimes}
       relation={kind === "shop" ? readShopRelation() : null}
       onShopAge={() => void fetchShopAges()}
       onAffiliate={() => void checkAffiliates()}
       onSoldOut={kind === "shop" ? () => void loadSoldOut() : undefined}
-      onCategory={() => void askResearch("riset_kategori")}
-      onShopResearch={() => void askResearch("shop_research")}
     />
   );
 
@@ -1006,6 +1025,16 @@ function Overlay() {
       {showScout && !dockMount && !floatOpen && marketBar ? (
         <MarketPill label={marketBar.pill} count={items.length} onOpen={() => setFloatOpen(true)} />
       ) : null}
+      {aiOpen && (
+        <MarketAiDialog
+          subtitle={aiSubtitle}
+          phase={aiPhase}
+          text={aiText}
+          onClose={() => setAiOpen(false)}
+          onRegenerate={() => aiRun.current()}
+          onOpenSettings={() => chrome.runtime.openOptionsPage()}
+        />
+      )}
     </>
   );
 }

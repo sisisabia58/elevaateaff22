@@ -12,6 +12,7 @@ import type { RoasPreset } from "../shared/presets";
 import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
+import { shopDataBlock, type MarketAiScope } from "../shared/market-brief";
 import { demoProfitSnapshot } from "../shared/reports";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
@@ -24,6 +25,7 @@ import { ProfitBoard } from "../ui/ProfitBoard";
 import { FunnelBoard } from "../ui/FunnelBoard";
 import { HistoriBoard } from "../ui/HistoriBoard";
 import { RoasCard } from "../ui/RoasCard";
+import { MarketAiDialog, type MarketAiPhase } from "../ui/MarketAiDialog";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { FEATURED, FIXTURES } from "./fixtures";
 
@@ -65,6 +67,11 @@ export function Studio() {
   const [ownShopPage, setOwnShopPage] = useState(false);
   const [aiPanel, setAiPanel] = useState<AiPanel | null>(null);
   const [scoutOpen, setScoutOpen] = useState(true);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiPhase, setAiPhase] = useState<MarketAiPhase>("loading");
+  const [aiText, setAiText] = useState("");
+  const [aiSubtitle, setAiSubtitle] = useState("-");
+  const [aiScope, setAiScope] = useState<MarketAiScope | null>(null);
   const market = marketFromHost("shopee.co.id");
 
   useEffect(() => {
@@ -134,6 +141,32 @@ export function Studio() {
       owner: own ? "Toko Anda" : null,
       ai: true,
     });
+  }
+
+  function openPreviewAi(scope?: MarketAiScope) {
+    const list = scope?.items ?? items;
+    const filter = scope?.filterLabel;
+    const subtitle = `Toko kompetitor — ${list[0]?.shopName || "Dapur Kecil"}${filter ? ` (difilter: ${filter})` : ""}`;
+    setAiSubtitle(subtitle);
+    setAiOpen(true);
+    if (!list.length) {
+      setAiPhase("error");
+      setAiText('Belum ada data produk buat dianalisa. Coba "Refresh data" dulu.');
+      return;
+    }
+    if (!settings.geminiApiKey.trim()) {
+      setAiPhase("nokey");
+      setAiText("");
+      return;
+    }
+    setAiPhase("loading");
+    window.setTimeout(() => {
+      const size = shopDataBlock(list, false, market).match(/Omset 30 hari terakhir: (.+)/)?.[1] ?? "-";
+      setAiPhase("result");
+      setAiText(
+        `**Ringkasan portofolio**\nOmset 30 hari di pratinjau ini ${size}, dari ${list.length} produk.\n\n**Yang menonjol**\n- Listing laris menahan sebagian besar omset.\n- Listing lama yang sepi jadi kandidat refresh.\n\n**Langkah berikut**\n1. Jaga stok produk yang sudah laku.\n2. Segarkan listing yang umurnya lewat 6 bulan tanpa penjualan.`,
+      );
+    }, 280);
   }
 
   function threadPreview(angle: ThreadAngle) {
@@ -240,8 +273,10 @@ export function Studio() {
                   onShopAge={() => setTaskNote("Umur toko demo sudah terisi.")}
                   onAffiliate={() => setTaskNote("Cek affiliate butuh sesi Affiliate Shopee.")}
                   onSoldOut={() => setTaskNote("Produk habis dibaca dari katalog toko.")}
-                  onCategory={() => setTaskNote("Analisa kategori butuh login Google tim dan kunci Gemini.")}
-                  onShopResearch={() => setTaskNote("Riset toko butuh login Google tim dan kunci Gemini.")}
+                  onMarketAi={(scope) => {
+                    setAiScope(scope);
+                    openPreviewAi(scope);
+                  }}
                   taskNote={taskNote}
                 />
               )}
@@ -473,7 +508,7 @@ export function Studio() {
             <li>Ubah komisi default, estimasi di pencarian ikut berubah.</li>
             <li>Cek komisi asli mengisi 4 produk pertama, seolah sesi Affiliate sudah login.</li>
             <li>Salin caption dari kartu produk atau popup.</li>
-            <li>Analisa menempel di pencarian: penjualan 30 hari, trend, sebaran harga, umur listing, dan umur toko.</li>
+            <li>Analisa AI di riset toko membuka modal. Tanpa kunci Gemini, modal minta pengaturan. Dengan kunci demo, modal menampilkan ringkasan lokal.</li>
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
@@ -492,10 +527,33 @@ export function Studio() {
             <button type="button" onClick={() => { setCardOpen(true); setScene("product"); }}>
               Buka kartu produk
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSettings((current) => ({ ...current, geminiApiKey: current.geminiApiKey.trim() ? "" : "demo-preview" }));
+                setScoutOpen(true);
+                setScene("search");
+              }}
+            >
+              {settings.geminiApiKey.trim() ? "Hapus kunci Gemini demo" : "Simulasi kunci Gemini"}
+            </button>
           </div>
           <p>Di Chrome, muat folder dist lewat Load unpacked setelah npm run build.</p>
         </aside>
       </main>
+      {aiOpen && (
+        <MarketAiDialog
+          subtitle={aiSubtitle}
+          phase={aiPhase}
+          text={aiText}
+          onClose={() => setAiOpen(false)}
+          onRegenerate={() => openPreviewAi(aiScope ?? undefined)}
+          onOpenSettings={() => {
+            setAiOpen(false);
+            setScene("settings");
+          }}
+        />
+      )}
     </>
   );
 }
