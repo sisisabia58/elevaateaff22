@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adFraction, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, snapshot, studioLedger, toggleStore } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppLines, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, snapshot, studioLedger, toggleStore } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -326,6 +326,34 @@ describe("shopee exports", () => {
     const october = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10" });
     expect(october.charts.daily.map((day) => day.date)).toEqual(["2026-10-15"]);
     expect(october.charts.provinces[0]?.label).toBe("DKI Jakarta");
+  });
+
+  it("keeps reported ad ROAS and prorates spend, clicks, and conversions", () => {
+    const parsed = parseTable(
+      ["Nama Iklan", "Status", "Mode Bidding", "Biaya", "Omzet Penjualan", "Konversi", "Jumlah Klik", "Dilihat", "Efektifitas Iklan"],
+      [["Tumbler Stainless 600ml Tutup Gelas", "Berjalan", "Iklan Otomatis", "10000", "40000", "2", "1.200", "8.000", "6,40"]],
+      { from: "2026-10-01", to: "2026-10-28" },
+    );
+    expect(parsed.ads[0]).toMatchObject({ status: "Berjalan", mode: "Iklan Otomatis", clicks: 1200, impressions: 8000, roas: 6, spend: 10_000 });
+    const detail = adCampaigns(parsed.ads, { from: "2026-10-01", to: "2026-10-06" }, null);
+    expect(detail.rows[0].roas).toBe(6);
+    expect(detail.rows[0].spend).toBeCloseTo(10_000 * (6 / 28), 5);
+    expect(detail.rows[0].clicks).toBeCloseTo(1200 * (6 / 28), 5);
+    expect(detail.rows[0].cpa).toBeCloseTo(10_000 / 2, 5);
+    expect(detail.prorated).toBe(true);
+    expect(adGapNote(detail)).toContain("Laporan iklan khusus periode 01/10/2026–06/10/2026 belum diupload");
+    expect(adGapNote(detail)).toContain("01/10/2026–28/10/2026");
+    expect(adSignal(6)).toBe("Untung");
+    expect(adSignal(3)).toBe("Waspada");
+    expect(adSignal(2.99)).toBe("Rugi");
+    expect(adChartLabel("Tumbler Stainless Promo")).toBe("Tumbler Stainless Promo…");
+    expect(clipAdName("x".repeat(60))).toHaveLength(56);
+    const october = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: {}, claimed: [], period: "2026-10" });
+    expect(october.campaigns.rows).toHaveLength(1);
+    expect(october.campaigns.rows[0]).toMatchObject({ status: "Berjalan", roas: 4, spend: 10_000, clicks: 120 });
+    expect(adSignal(october.campaigns.rows[0].roas)).toBe("Waspada");
+    expect(october.campaigns.prorated).toBe(false);
+    expect(adGapNote(october.campaigns)).toBeNull();
   });
 
   it("parses a csv row with quotes", () => {

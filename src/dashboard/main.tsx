@@ -13,8 +13,8 @@ A2,SKU1,Tumbler,1,40000,0,0,Batal,2026-10-16 09:00,2026-10-16 10:00,2026-10-16 1
 const SAMPLE_FINANCE = `No. Pesanan,Harga Produk,Total Penghasilan,Biaya Administrasi,Biaya Layanan,Waktu Pelepasan Dana
 A1,80000,75000,-4000,-1000,2026-11-05`;
 const SAMPLE_ADS = `Periode,01/10/2026 - 28/10/2026
-Nama Iklan,Biaya,Omzet Penjualan,Produk Terjual
-Tumbler,10000,40000,2`;
+Nama Iklan,Status,Mode Bidding,Biaya,Omzet Penjualan,Konversi,Jumlah Klik,Dilihat,Efektifitas Iklan
+Tumbler,Berjalan,Iklan Otomatis,10000,40000,2,120,3000,4.00`;
 
 function sheetGrid(sheet: XLSX.WorkSheet): string[][] {
   const grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false }) as unknown[][];

@@ -64,7 +64,48 @@ export type MoneyFlow = {
   kompensasi: number;
 };
 
-export type AdRow = { name: string; spend: number; gmv: number; orders: number; periodFrom?: string | null; periodTo?: string | null; store?: string | null };
+export type AdRow = {
+  name: string;
+  spend: number;
+  gmv: number;
+  orders: number;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  store?: string | null;
+  status?: string | null;
+  mode?: string | null;
+  clicks?: number | null;
+  impressions?: number | null;
+  roas?: number | null;
+};
+
+export type AdCampaign = {
+  name: string;
+  status: string;
+  mode: string;
+  spend: number;
+  gmv: number;
+  orders: number;
+  clicks: number;
+  impressions: number;
+  roas: number;
+  cpa: number;
+  prorated: boolean;
+};
+
+export type AdDetail = {
+  spend: number;
+  gmv: number;
+  orders: number;
+  clicks: number;
+  roas: number;
+  cpa: number;
+  prorated: boolean;
+  window: ProfitWindow | null;
+  gapPeriods: ProfitWindow[];
+  periodLabel: string | null;
+  rows: AdCampaign[];
+};
 
 export type ProfitWindow = { from: string; to: string };
 
@@ -80,6 +121,7 @@ export type ProfitSnapshot = {
   adGmv: number;
   roas: number;
   prorated: boolean;
+  campaigns: AdDetail;
   hpp: number;
   operasional: number;
   profit: number;
@@ -106,6 +148,12 @@ function num(value: string | undefined): number {
   if (!value) return 0;
   const cleaned = value.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".");
   const parsed = Number(cleaned);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function plainNum(value: string | undefined): number {
+  if (value == null || value === "") return 0;
+  const parsed = parseFloat(String(value).trim().replace(/\s/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -320,12 +368,22 @@ export function parseTable(headers: string[], rows: string[][], adPeriod?: { fro
     const spend = col(headers, "biaya");
     const gmv = col(headers, "omzet", "penjualan");
     const ordersCol = col(headers, "terjual", "konversi", "pesanan");
+    const status = col(headers, "status");
+    const mode = col(headers, "mode bidding", "mode");
+    const clicks = col(headers, "jumlah klik");
+    const impressions = col(headers, "dilihat", "impresi", "impression");
+    const roas = col(headers, "efektifitas iklan", "efektivitas iklan", "roas");
     for (const row of rows) {
       ads.push({
         name: row[name] || "",
         spend: num(row[spend]),
         gmv: num(row[gmv]),
         orders: num(row[ordersCol]),
+        status: status >= 0 ? row[status] || "" : "",
+        mode: mode >= 0 ? row[mode] || "" : "",
+        clicks: clicks >= 0 ? num(row[clicks]) : 0,
+        impressions: impressions >= 0 ? num(row[impressions]) : 0,
+        roas: roas >= 0 ? plainNum(row[roas]) : 0,
         periodFrom: adPeriod?.from ?? null,
         periodTo: adPeriod?.to ?? null,
       });
@@ -412,6 +470,7 @@ export function snapshot(input: {
     flow,
     shortfalls,
     charts: profitCharts(active, flow),
+    campaigns: adCampaigns(input.ads, window, input.storeFilter),
   };
 }
 
@@ -628,6 +687,86 @@ export function adFraction(ad: AdRow, window: ProfitWindow | null): number {
   return Math.min(1, overlapDays / totalDays);
 }
 
+function fmtDateFull(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+export function adSignal(roas: number): "Untung" | "Waspada" | "Rugi" {
+  if (roas >= 6) return "Untung";
+  if (roas >= 3) return "Waspada";
+  return "Rugi";
+}
+
+export function adChartLabel(name: string): string {
+  return `${name.split(" ").slice(0, 3).join(" ")}…`;
+}
+
+export function clipAdName(name: string): string {
+  return name.length > 55 ? `${name.slice(0, 55)}…` : name;
+}
+
+export function adCampaigns(ads: AdRow[], window: ProfitWindow | null, storeFilter?: string[] | null): AdDetail {
+  const rows: AdCampaign[] = [];
+  const gaps = new Map<string, ProfitWindow>();
+  const periods = new Map<string, ProfitWindow>();
+  let spend = 0;
+  let gmv = 0;
+  let orders = 0;
+  let clicks = 0;
+  let prorated = false;
+  for (const ad of rowsForStores(ads, storeFilter)) {
+    const fraction = adFraction(ad, window);
+    if (fraction <= 0) continue;
+    if (ad.periodFrom && ad.periodTo) periods.set(`${ad.periodFrom}|${ad.periodTo}`, { from: ad.periodFrom, to: ad.periodTo });
+    if (fraction < 1 && ad.periodFrom && ad.periodTo) {
+      prorated = true;
+      gaps.set(`${ad.periodFrom}|${ad.periodTo}`, { from: ad.periodFrom, to: ad.periodTo });
+    }
+    const biaya = ad.spend * fraction;
+    const omzet = ad.gmv * fraction;
+    const konv = ad.orders * fraction;
+    const klik = (ad.clicks || 0) * fraction;
+    spend += biaya;
+    gmv += omzet;
+    orders += konv;
+    clicks += klik;
+    rows.push({
+      name: ad.name || "",
+      status: ad.status || "",
+      mode: ad.mode || "",
+      spend: biaya,
+      gmv: omzet,
+      orders: konv,
+      clicks: klik,
+      impressions: (ad.impressions || 0) * fraction,
+      roas: ad.roas || 0,
+      cpa: konv > 0 ? biaya / konv : 0,
+      prorated: fraction < 1,
+    });
+  }
+  return {
+    spend,
+    gmv,
+    orders,
+    clicks,
+    roas: spend > 0 ? gmv / spend : 0,
+    cpa: orders > 0 ? spend / orders : 0,
+    prorated,
+    window,
+    gapPeriods: [...gaps.values()],
+    periodLabel: [...periods.values()].map((period) => `${fmtDateFull(period.from)}–${fmtDateFull(period.to)}`).join(", ") || null,
+    rows,
+  };
+}
+
+export function adGapNote(detail: AdDetail): string | null {
+  if (!detail.prorated || !detail.window) return null;
+  const win = `${fmtDateFull(detail.window.from)}–${fmtDateFull(detail.window.to)}`;
+  const reports = detail.gapPeriods.map((period) => `${fmtDateFull(period.from)}–${fmtDateFull(period.to)}`).join(", ");
+  return `Laporan iklan khusus periode ${win} belum diupload. Angka Biaya Iklan di atas adalah estimasi prorata (dibagi rata per hari) dari laporan yang tersedia untuk ${reports}. Untuk hasil yang akurat, export "Semua Laporan Iklan CPC" dari Shopee Ads Center khusus periode ${win}, lalu upload di sini.`;
+}
+
 export type HppLine = { sku: string; name: string; qty: number; hpp: number };
 
 export function hppLines(orders: OrderRow[], hpp: Record<string, number>): HppLine[] {
@@ -724,7 +863,19 @@ export function studioLedger(): { orders: OrderRow[]; finance: FinanceRow[]; ads
         releasedAt: "2026-09-15",
       },
     ],
-    ads: [{ name: "Tumbler", spend: 10_000, gmv: 40_000, orders: 2, periodFrom: "2026-10-01", periodTo: "2026-10-28" }],
+    ads: [{
+      name: "Tumbler",
+      spend: 10_000,
+      gmv: 40_000,
+      orders: 2,
+      clicks: 120,
+      impressions: 3000,
+      status: "Berjalan",
+      mode: "Iklan Otomatis",
+      roas: 4,
+      periodFrom: "2026-10-01",
+      periodTo: "2026-10-28",
+    }],
   };
 }
 

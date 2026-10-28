@@ -105,7 +105,23 @@ export function Studio() {
           releasedAt: "2026-08-18",
         },
       ],
-      ads: tag(base.ads),
+      ads: [
+        ...tag(base.ads),
+        {
+          name: "Wajan Anti Lengket 28cm Promo Dapur",
+          spend: 8_000,
+          gmv: 12_000,
+          orders: 1,
+          clicks: 90,
+          impressions: 1_500,
+          status: "Dihentikan",
+          mode: "Bidding Manual",
+          roas: 1.5,
+          periodFrom: "2026-08-01",
+          periodTo: "2026-08-31",
+          store: "Toko Laut",
+        },
+      ],
     };
   }, []);
   const [presets, setPresets] = useState<Record<string, RoasPreset>>({
@@ -608,7 +624,7 @@ export function Studio() {
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
-            <li>Laba memakai contoh dua toko, plus tren harian, biaya, pembayaran, provinsi, kurir, dan SKU.</li>
+            <li>Laba memakai contoh dua toko, plus tren harian, biaya, pembayaran, provinsi, kurir, SKU, dan detail iklan per kampanye.</li>
             <li>Histori performa di iklan bisa diubah catatannya setelah disimpan.</li>
           </ul>
           <div className="studio-tools">

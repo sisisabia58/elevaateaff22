@@ -1,5 +1,5 @@
-import { formatMoney, marketFromHost } from "../shared/money";
-import { periodLabel, toggleStore, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { formatCount, formatMoney, marketFromHost } from "../shared/money";
+import { adChartLabel, adGapNote, adSignal, clipAdName, periodLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -215,6 +215,7 @@ export function ProfitBoard({
             </p>
           )}
           {snapshot && <ProfitChartsView charts={snapshot.charts} />}
+          {snapshot && <AdDetailView detail={snapshot.campaigns} />}
           {snapshot && onOperasional && (
             <label className="ea-field">
               Operasional
@@ -339,6 +340,119 @@ export function ProfitBoard({
         </div>
       </div>
     </div>
+  );
+}
+
+function AdDetailView({ detail }: { detail: AdDetail }) {
+  const gap = adGapNote(detail);
+  const maxMoney = Math.max(1, ...detail.rows.map((row) => Math.max(row.spend, row.gmv)));
+  const maxRoas = Math.max(...detail.rows.map((row) => row.roas), 1);
+  const roasScale = Math.ceil(maxRoas * 1.3);
+  return (
+    <section className="ea-sheet ea-iklan" id="ea-iklan">
+      <div className="ea-kicker">Detail Iklan</div>
+      {detail.periodLabel && (
+        <p className="ea-iklan-period">
+          Laporan iklan terakhir diimport untuk periode: <strong>{detail.periodLabel}</strong> · Data di bawah sudah mengikuti filter periode/custom range di atas, diprorata per hari kalau windownya lebih sempit dari periode laporan (Shopee tidak expor biaya iklan harian).
+        </p>
+      )}
+      {gap && <p className="ea-iklan-gap" id="ea-iklan-gap">{gap}</p>}
+      {detail.rows.length === 0 ? (
+        <p className="ea-note">Import Laporan Iklan untuk melihat data iklan</p>
+      ) : (
+        <>
+          <div className="ea-metrics ea-profit-metrics">
+            <article className="ea-metric">
+              <span className="ea-kicker">Total Ad Spend</span>
+              <strong>{formatMoney(detail.spend, market)}</strong>
+              <span>{detail.rows.length} kampanye{detail.prorated ? " · ≈ prorata harian" : ""}</span>
+            </article>
+            <article className="ea-metric">
+              <span className="ea-kicker">GMV dari Iklan</span>
+              <strong>{formatMoney(detail.gmv, market)}</strong>
+              <span>Omzet dari iklan</span>
+            </article>
+            <article className="ea-metric">
+              <span className="ea-kicker">Overall ROAS</span>
+              <strong>{detail.spend > 0 ? `${detail.roas.toFixed(2)}×` : "—"}</strong>
+              <span>GMV / Ad Spend</span>
+            </article>
+            <article className="ea-metric">
+              <span className="ea-kicker">Total Konversi</span>
+              <strong>{Math.round(detail.orders)}</strong>
+              <span>{formatCount(detail.clicks)} klik</span>
+            </article>
+            <article className="ea-metric">
+              <span className="ea-kicker">Avg CPA</span>
+              <strong>{formatMoney(detail.cpa, market)}</strong>
+              <span>Biaya per konversi</span>
+            </article>
+          </div>
+          <div className="ea-iklan-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>IKLAN</th>
+                  <th>SINYAL</th>
+                  <th>STATUS</th>
+                  <th>MODE</th>
+                  <th>ROAS</th>
+                  <th>KONVERSI</th>
+                  <th>KLIK</th>
+                  <th>AD SPEND</th>
+                  <th>GMV</th>
+                  <th>CPA</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.rows.map((row) => {
+                  const signal = adSignal(row.roas);
+                  return (
+                    <tr key={`${row.name}-${row.mode}`}>
+                      <td>
+                        <div className="ea-iklan-name">{clipAdName(row.name)}</div>
+                        <div className="ea-iklan-mode">{row.mode}</div>
+                      </td>
+                      <td><span className={`ea-signal ${signal.toLowerCase()}`}>{signal}</span></td>
+                      <td className={row.status === "Berjalan" ? "ea-status berjalan" : "ea-status lain"}>{row.status}</td>
+                      <td>{row.mode}</td>
+                      <td>
+                        <strong className={row.roas >= 3 ? "ea-roas good" : "ea-roas bad"}>{row.roas.toFixed(2)}×</strong>
+                        <div className="ea-roas-track">
+                          <i style={{ width: `${Math.min((row.roas / maxRoas) * 100, 100).toFixed(0)}%`, background: row.roas >= 3 ? "#16a34a" : "#dc2626" }} />
+                        </div>
+                      </td>
+                      <td className="num">{Math.round(row.orders)}</td>
+                      <td className="num">{formatCount(row.clicks)}</td>
+                      <td className="num">{formatMoney(row.spend, market)}</td>
+                      <td className="num">{formatMoney(row.gmv, market)}</td>
+                      <td className="num">{formatMoney(row.cpa, market)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="ea-chart">
+            <h2>ROAS & Ad Spend per Iklan</h2>
+            <p className="sub">Perbandingan efisiensi kampanye</p>
+            <div className="ea-ad-legend">
+              <span><i className="spend" /> Ad Spend</span>
+              <span><i className="gmv" /> GMV</span>
+              <span><i className="roas" /> ROAS</span>
+            </div>
+            {detail.rows.map((row) => (
+              <div className="ea-ad-row" key={`chart-${row.name}`}>
+                <div className="name">{adChartLabel(row.name)}</div>
+                <div className="ea-mini"><span>Ad Spend</span><i className="spend" style={{ width: `${(row.spend / maxMoney) * 100}%` }} /><b>{formatMoney(row.spend, market)}</b></div>
+                <div className="ea-mini"><span>GMV</span><i className="gmv" style={{ width: `${(row.gmv / maxMoney) * 100}%` }} /><b>{formatMoney(row.gmv, market)}</b></div>
+                <div className="ea-mini"><span>ROAS</span><i className="roas" style={{ width: `${Math.min((row.roas / roasScale) * 100, 100)}%` }} /><b>{row.roas.toFixed(2)}×</b></div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
