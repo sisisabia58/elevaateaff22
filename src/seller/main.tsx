@@ -8,6 +8,7 @@ import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } f
 import { stampAdTable } from "../shared/ad-badges";
 import { stampPerfMetrics } from "../shared/perf-metrics";
 import { stampPerfCards } from "../shared/perf-badges";
+import type { RoasPreset } from "../shared/presets";
 import { realProfit, type RoasInput } from "../shared/roas";
 import { hppFor } from "../shared/reports";
 import { callAiProxy, callFeatureProxy, countSavedContacts, pingFeature, reportShopeeAccount, saveContacts } from "../shared/server";
@@ -159,14 +160,17 @@ function SellerApp() {
 
   useEffect(() => {
     if (kind !== "ads" || !books) return;
-    const ready = books.roas.hargaJual > 0 && books.roas.hpp > 0 ? books.roas : null;
     const look = () => {
-      const stamped = stampAdTable(document, ready);
-      const strip = stampPerfMetrics(document, ready);
+      const presets = books.presets || {};
+      const stamped = stampAdTable(document, presets);
+      const strip = stampPerfMetrics(document, presets, books.roas.ppnTopupPersen ?? 11);
+      const named = Object.keys(presets).length;
       setTableNote(
-        stamped || strip
-          ? "Badge laba dan biaya iklan aktual memakai HPP kalkulator, setelah PPN topup 11%."
-          : "Tabel iklan belum ketemu di halaman ini.",
+        !stamped && !strip
+          ? "Tabel iklan belum ketemu di halaman ini."
+          : named
+            ? "Laba per baris memakai preset yang nama atau ID produknya cocok. Biaya iklan aktual sudah termasuk PPN 11%."
+            : "Simpan preset dengan nama judul produk supaya laba per baris terhitung.",
       );
     };
     look();
@@ -177,6 +181,13 @@ function SellerApp() {
   function updateRoas(next: RoasInput) {
     if (!books) return;
     const updated = { ...books, roas: next };
+    setBooks(updated);
+    void saveBooks(updated);
+  }
+
+  function updatePresets(presets: Record<string, RoasPreset>) {
+    if (!books) return;
+    const updated = { ...books, presets };
     setBooks(updated);
     void saveBooks(updated);
   }
@@ -230,7 +241,20 @@ function SellerApp() {
             </div>
           )}
           {kind === "ads" && (
-            <RoasCard value={books.roas} onChange={updateRoas} spend={spend} onSpend={setSpend} tableNote={tableNote} />
+            <RoasCard
+              value={books.roas}
+              onChange={updateRoas}
+              presets={books.presets}
+              onSavePreset={(name, preset) => updatePresets({ ...books.presets, [name]: preset })}
+              onDeletePreset={(name) => {
+                const next = { ...books.presets };
+                delete next[name];
+                updatePresets(next);
+              }}
+              spend={spend}
+              onSpend={setSpend}
+              tableNote={tableNote}
+            />
           )}
           {kind === "performance" && (
             <>

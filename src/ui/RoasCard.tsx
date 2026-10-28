@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { formatMoney, marketFromHost } from "../shared/money";
+import type { RoasPreset } from "../shared/presets";
 import { hitungMultiTierROAS, hitungTargetROAS, realProfit, zoneFor, type RoasInput } from "../shared/roas";
 import { elevateCss } from "./css";
 
@@ -10,12 +12,18 @@ export function RoasCard({
   spend = "",
   onSpend,
   tableNote,
+  presets = {},
+  onSavePreset,
+  onDeletePreset,
 }: {
   value: RoasInput;
   onChange: (next: RoasInput) => void;
   spend?: string;
   onSpend?: (value: string) => void;
   tableNote?: string | null;
+  presets?: Record<string, RoasPreset>;
+  onSavePreset?: (name: string, preset: RoasPreset) => void;
+  onDeletePreset?: (name: string) => void;
 }) {
   const hasil = hitungTargetROAS(value);
   const tiers = hitungMultiTierROAS(value);
@@ -32,6 +40,9 @@ export function RoasCard({
         })
       : null;
   const set = (patch: Partial<RoasInput>) => onChange({ ...value, ...patch });
+  const [name, setName] = useState("");
+  const [productId, setProductId] = useState("");
+  const [presetNote, setPresetNote] = useState<string | null>(null);
 
   return (
     <div className="ea-root">
@@ -92,6 +103,62 @@ export function RoasCard({
         </div>
         {zone && <p className="ea-note">Zona saat ini: {zone.label}.</p>}
         {tableNote && <p className="ea-note">{tableNote}</p>}
+        {onSavePreset && (
+          <>
+            <div className="ea-field">
+              <label htmlFor="ea-preset-name">Nama preset</label>
+              <input id="ea-preset-name" type="text" value={name} placeholder="Potongan judul produk" onChange={(event) => setName(event.target.value)} />
+              <p>Minimal 5 huruf. Baris iklan yang judulnya memuat nama ini memakai HPP preset.</p>
+            </div>
+            <div className="ea-field">
+              <label htmlFor="ea-preset-id">ID produk</label>
+              <input id="ea-preset-id" type="text" value={productId} onChange={(event) => setProductId(event.target.value)} />
+            </div>
+            <button
+              className="ea-btn primary"
+              type="button"
+              onClick={() => {
+                const trimmed = name.trim();
+                if (trimmed.length < 5) {
+                  setPresetNote("Nama preset minimal 5 huruf.");
+                  return;
+                }
+                onSavePreset(trimmed, { ...value, productId: productId.trim() || undefined });
+                setPresetNote(`Preset ${trimmed} tersimpan.`);
+              }}
+            >
+              Simpan preset
+            </button>
+            {presetNote && <p className="ea-note">{presetNote}</p>}
+            {Object.keys(presets).length > 0 && (
+              <div className="ea-preset-list">
+                {Object.entries(presets).map(([key, preset]) => (
+                  <div key={key} className="ea-item">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setName(key);
+                        setProductId(preset.productId || "");
+                        onChange({ ...value, ...preset });
+                      }}
+                    >
+                      <b>{key}</b>
+                      <span>
+                        HPP {formatMoney(preset.hpp, market)}
+                        {preset.productId ? ` · ID ${preset.productId}` : ""}
+                      </span>
+                    </button>
+                    {onDeletePreset && (
+                      <button type="button" onClick={() => onDeletePreset(key)}>
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );

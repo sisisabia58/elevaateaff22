@@ -174,6 +174,9 @@ export const elevateCss = `
 .ea-funnel-omzet { border-top: 1px dashed #eee6da; margin-top: 6px; padding-top: 6px; }
 .ea-funnel-omzet strong { display: block; color: #ee4d2d; font-size: 14px; }
 .ea-funnel-repeat { margin: 6px 0 0; }
+.ea-preset-list { margin-top: 8px; }
+.ea-preset-list .ea-item { display: flex; align-items: center; gap: 8px; }
+.ea-preset-list .ea-item > button:first-child { flex: 1; text-align: left; border: 0; background: transparent; padding: 0; }
 .ea-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .ea-zone { border: 1px solid #e6dfd2; border-radius: 12px; padding: 8px; background: #fff; }
 .ea-zone.on { border-color: #0f6e56; background: #e5f4ee; }

@@ -1,4 +1,5 @@
-import { adRoasLabel, computeProfitBersih, parseShopeeNumber, profitBadgeText, type RoasInput } from "./roas";
+import { matchPreset, rowHint, type RoasPreset } from "./presets";
+import { adRoasLabel, computeProfitBersih, parseShopeeNumber, profitBadgeText } from "./roas";
 
 const PROFIT = "ea-profit-badge";
 const ZONE = "ea-roas-badge";
@@ -51,8 +52,7 @@ function place(cell: HTMLElement, className: string, text: string, title: string
   badge.title = title;
 }
 
-export function stampAdTable(root: ParentNode, preset: RoasInput | null): number {
-  const ready = Boolean(preset && preset.hargaJual > 0 && preset.hpp > 0);
+export function stampAdTable(root: ParentNode, presets: Record<string, RoasPreset>): number {
   let stamped = 0;
   for (const table of root.querySelectorAll("table")) {
     if (!(table instanceof HTMLTableElement)) continue;
@@ -65,15 +65,18 @@ export function stampAdTable(root: ParentNode, preset: RoasInput | null): number
     const roas = headerIndex(headers, "roas");
     const cpc = headerIndex(headers, "biaya per konversi");
     const acos = headers.findIndex((header) => /acos|persentase biaya iklan/.test(header));
-    const ppn = 1 + ((preset?.ppnTopupPersen ?? 11) / 100);
     for (const row of table.querySelectorAll("tbody tr")) {
       if (!(row instanceof HTMLTableRowElement)) continue;
       const sales = parseShopeeNumber(cellText(row, penjualan));
       const units = parseShopeeNumber(cellText(row, sold));
       const host = row.cells[penjualan];
       if (!host || sales == null || units == null || units <= 0) continue;
-      if (!ready || !preset) {
-        place(host, PROFIT, "Perlu Setup", "Isi HPP dan harga jual di kalkulator ROAS.", "setup");
+      const hint = rowHint(row, headers);
+      const matched = matchPreset(presets, hint);
+      const preset = matched && matched.preset.hargaJual > 0 && matched.preset.hpp > 0 ? matched.preset : null;
+      const ppn = 1 + ((preset?.ppnTopupPersen ?? 11) / 100);
+      if (!preset) {
+        place(host, PROFIT, "Perlu Setup", "Simpan preset dengan nama yang ada di judul, atau ID produk yang sama.", "setup");
       } else {
         const result = computeProfitBersih({
           penjualan: sales,
@@ -86,18 +89,18 @@ export function stampAdTable(root: ParentNode, preset: RoasInput | null): number
           host,
           PROFIT,
           profitBadgeText(result.profitBersih),
-          `Penjualan ${Math.round(sales).toLocaleString("id-ID")} − modal ${Math.round(result.modal).toLocaleString("id-ID")} − platform ${Math.round(result.biayaPlatform).toLocaleString("id-ID")} − iklan termasuk PPN ${Math.round(result.biayaIklanAktual).toLocaleString("id-ID")}`,
+          `Preset ${matched?.name}. Penjualan ${Math.round(sales).toLocaleString("id-ID")} − modal ${Math.round(result.modal).toLocaleString("id-ID")} − platform ${Math.round(result.biayaPlatform).toLocaleString("id-ID")} − iklan termasuk PPN ${Math.round(result.biayaIklanAktual).toLocaleString("id-ID")}`,
           result.profitBersih >= 0 ? "good" : "bad",
         );
       }
       const roasCell = roas == null ? null : row.cells[roas];
       const shown = parseShopeeNumber(cellText(row, roas));
       if (roasCell && shown != null) {
-        if (!ready || !preset) place(roasCell, ZONE, "Perlu Setup", "Isi HPP dan harga jual di kalkulator ROAS.", "setup");
+        if (!preset) place(roasCell, ZONE, "Perlu Setup", "Simpan preset dengan nama yang ada di judul, atau ID produk yang sama.", "setup");
         else {
           const label = adRoasLabel(shown, preset);
           const tone = label === "Bagus" ? "good" : label === "Rugi" ? "bad" : label === "Cukup" ? "mid" : "setup";
-          place(roasCell, ZONE, label, `ROAS tampilan ${shown}. Zona memakai ROAS setelah PPN topup.`, tone);
+          place(roasCell, ZONE, label, `Preset ${matched?.name}. ROAS tampilan ${shown}. Zona memakai ROAS setelah PPN topup.`, tone);
         }
       }
       const adCell = ads == null ? null : row.cells[ads];

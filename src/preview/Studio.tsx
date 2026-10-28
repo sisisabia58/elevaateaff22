@@ -7,6 +7,7 @@ import { stampAdTable } from "../shared/ad-badges";
 import { stampPerfMetrics } from "../shared/perf-metrics";
 import { classifyPortfolio } from "../shared/funnel";
 import { stampPerfCards } from "../shared/perf-badges";
+import type { RoasPreset } from "../shared/presets";
 import { EMPTY_ROAS } from "../shared/roas";
 import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
@@ -43,6 +44,10 @@ export function Studio() {
   const [taskNote, setTaskNote] = useState<string | undefined>(undefined);
   const [shareUrl, setShareUrl] = useState("");
   const [roas, setRoas] = useState(EMPTY_ROAS);
+  const [presets, setPresets] = useState<Record<string, RoasPreset>>({
+    Tumbler: { ...EMPTY_ROAS, hargaJual: 100_000, hpp: 40_000, productId: "1001" },
+    Talenan: { ...EMPTY_ROAS, hargaJual: 77_000, hpp: 20_000 },
+  });
   const [signedIn, setSignedIn] = useState(false);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [sort, setSort] = useState<ScoutSort>("commission");
@@ -60,10 +65,10 @@ export function Studio() {
     if (scene !== "iklan") return;
     const root = document.querySelector(".ad-demo");
     if (root) {
-      stampAdTable(root, roas);
-      stampPerfMetrics(root, roas);
+      stampAdTable(root, presets);
+      stampPerfMetrics(root, presets, roas.ppnTopupPersen);
     }
-  }, [scene, roas]);
+  }, [scene, roas, presets]);
 
   useEffect(() => {
     if (scene !== "performa") return;
@@ -320,7 +325,10 @@ export function Studio() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td>Tumbler Stainless</td>
+                    <td>
+                      Tumbler Stainless
+                      <span>ID Produk: 1001</span>
+                    </td>
                     <td>Rp890.000</td>
                     <td>10</td>
                     <td>8</td>
@@ -335,9 +343,32 @@ export function Studio() {
                     <td>Rp80.000</td>
                     <td>1,50</td>
                   </tr>
+                  <tr>
+                    <td>Gelas Plastik</td>
+                    <td>Rp50.000</td>
+                    <td>1</td>
+                    <td>1</td>
+                    <td>Rp10.000</td>
+                    <td>5,00</td>
+                  </tr>
                 </tbody>
               </table>
-              <RoasCard value={roas} onChange={setRoas} spend="20000" onSpend={() => undefined} tableNote={null} />
+              <RoasCard
+                value={roas}
+                onChange={setRoas}
+                presets={presets}
+                onSavePreset={(name, preset) => setPresets((current) => ({ ...current, [name]: preset }))}
+                onDeletePreset={(name) =>
+                  setPresets((current) => {
+                    const next = { ...current };
+                    delete next[name];
+                    return next;
+                  })
+                }
+                spend="20000"
+                onSpend={() => undefined}
+                tableNote={null}
+              />
             </div>
           )}
           {scene === "performa" && (
@@ -367,7 +398,7 @@ export function Studio() {
             <li>Salin caption dari kartu produk atau popup.</li>
             <li>Analisa menempel di pencarian: penjualan 30 hari, trend, sebaran harga, umur listing, dan umur toko.</li>
             <li>Kartu produk menggambar gambar 4:5.</li>
-            <li>Iklan menunjukkan zona ROAS. Laba mulai dari keadaan kosong.</li>
+            <li>Iklan memakai preset Tumbler dan Talenan. Gelas Plastik tetap Perlu Setup.</li>
             <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
           </ul>
           <div className="studio-tools">

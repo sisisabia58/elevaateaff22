@@ -1,4 +1,5 @@
-import { computeProfitBersih, parseShopeeNumber, profitBadgeText, type RoasInput } from "./roas";
+import { matchPreset, rowHint, type RoasPreset } from "./presets";
+import { computeProfitBersih, parseShopeeNumber, profitBadgeText } from "./roas";
 
 export type PerfStripInput = {
   sales: number | null;
@@ -129,9 +130,9 @@ function card(label: string, value: string, extra: string, title: string): strin
   return `<div class="ea-perf-card" title="${title}"><span>${label}</span><strong>${value}</strong>${extra}</div>`;
 }
 
-function tableProfit(root: ParentNode, preset: RoasInput | null): { text: string; title: string; background: string } | null {
-  const ready = Boolean(preset && preset.hargaJual > 0 && preset.hpp > 0);
+function tableProfit(root: ParentNode, presets: Record<string, RoasPreset>): { text: string; title: string; background: string } | null {
   let total = 0;
+  let matched = 0;
   let profit = 0;
   for (const table of root.querySelectorAll("table")) {
     if (!(table instanceof HTMLTableElement)) continue;
@@ -147,27 +148,30 @@ function tableProfit(root: ParentNode, preset: RoasInput | null): { text: string
       const units = parseShopeeNumber(plainCell(row.cells[unitsIndex]));
       if (sales == null || units == null || units <= 0) continue;
       total += 1;
-      if (!ready || !preset) continue;
+      const hit = matchPreset(presets, rowHint(row, headers));
+      if (!hit || hit.preset.hargaJual <= 0 || hit.preset.hpp <= 0) continue;
+      matched += 1;
       profit += computeProfitBersih({
         penjualan: sales,
         produkTerjual: units,
         konversi: ordersIndex < 0 ? null : parseShopeeNumber(plainCell(row.cells[ordersIndex])),
         biayaIklanAsli: adsIndex < 0 ? 0 : (parseShopeeNumber(plainCell(row.cells[adsIndex])) ?? 0),
-        preset,
+        preset: hit.preset,
       }).profitBersih;
     }
   }
   if (!total) return null;
-  if (!ready) {
+  if (!matched) {
     return {
       text: "Perlu Setup",
-      title: "Isi HPP dan harga jual di kalkulator ROAS supaya profit iklan bisa dijumlah.",
+      title: "Belum ada baris yang preset ROAS-nya cocok. Simpan preset dengan nama judul atau ID produk.",
       background: "#9aa1ac",
     };
   }
+  const skipped = total - matched;
   return {
-    text: `${profitBadgeText(profit)} (${total}/${total})`,
-    title: `Jumlah profit bersih ${total} baris tabel, setelah PPN topup iklan.`,
+    text: `${profitBadgeText(profit)} (${matched}/${total})`,
+    title: `Jumlah profit bersih ${matched} produk yang presetnya cocok, dari ${total} baris.${skipped ? ` ${skipped} baris lain belum ikut karena preset belum ada.` : ""}`,
     background: profit >= 0 ? "#27ae60" : "#ee4d2d",
   };
 }
@@ -179,7 +183,7 @@ function plainCell(cell: Element | undefined): string {
   return (clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
-export function stampPerfMetrics(root: ParentNode, preset: RoasInput | null): boolean {
+export function stampPerfMetrics(root: ParentNode, presets: Record<string, RoasPreset>, ppn = 11): boolean {
   const container = root.querySelector('.line-metrics[data-testid="line-metrics"]');
   if (!(container instanceof HTMLElement)) {
     root.querySelector("#ea-perf-metrics")?.remove();
@@ -195,21 +199,25 @@ export function stampPerfMetrics(root: ParentNode, preset: RoasInput | null): bo
     impressions: value("impressions"),
     clicks: value("clicks"),
     orders: value("orders"),
-    ppn: preset?.ppnTopupPersen,
+    ppn,
   });
   const salesItem = item("sales");
-  const summary = tableProfit(root, preset) ?? (extras && salesItem && value("units") && preset && preset.hargaJual > 0 && preset.hpp > 0
+  const doc = root instanceof Document ? root : root instanceof Node ? root.ownerDocument : null;
+  const detailTitle = doc?.querySelector(".name-edit-trigger")?.textContent || "";
+  const detailId = doc?.location?.pathname.match(/\/product\/manual(?:-[a-z0-9]+)?\/(\d+)/i)?.[1] ?? null;
+  const detailHit = matchPreset(presets, { title: detailTitle, productId: detailId });
+  const summary = tableProfit(root, presets) ?? (extras && salesItem && value("units") && detailHit && detailHit.preset.hargaJual > 0 && detailHit.preset.hpp > 0
     ? (() => {
         const result = computeProfitBersih({
           penjualan: value("sales") as number,
           produkTerjual: value("units") as number,
           konversi: value("orders"),
           biayaIklanAsli: value("adSpend") ?? 0,
-          preset,
+          preset: detailHit.preset,
         });
         return {
           text: profitBadgeText(result.profitBersih),
-          title: "Profit bersih kartu ini, setelah PPN topup iklan.",
+          title: `Preset ${detailHit.name}. Profit bersih kartu ini, setelah PPN topup iklan.`,
           background: result.profitBersih >= 0 ? "#27ae60" : "#ee4d2d",
         };
       })()
