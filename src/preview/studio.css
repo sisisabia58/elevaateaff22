@@ -52,6 +52,8 @@ button, input { font: inherit; }
   border-radius: 999px;
   padding: 6px 12px;
 }
+.ad-demo table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 16px; font-size: 13px; }
+.ad-demo th, .ad-demo td { border-bottom: 1px solid #eee6da; text-align: left; padding: 8px; vertical-align: top; }
 .page { padding: 22px; }
 .page h2 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; }
 .muted { color: #6d655b; }

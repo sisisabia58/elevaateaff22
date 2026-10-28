@@ -3,6 +3,7 @@ import { buildCaptions } from "../shared/captions";
 import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
+import { stampAdTable } from "../shared/ad-badges";
 import { EMPTY_ROAS } from "../shared/roas";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
@@ -48,6 +49,12 @@ export function Studio() {
   const [cardOpen, setCardOpen] = useState(true);
   const [scoutOpen, setScoutOpen] = useState(true);
   const market = marketFromHost("shopee.co.id");
+
+  useEffect(() => {
+    if (scene !== "iklan") return;
+    const root = document.querySelector(".ad-demo");
+    if (root) stampAdTable(root, roas);
+  }, [scene, roas]);
   const items = empty ? [] : FIXTURES;
 
   const commissions = useMemo(() => {
@@ -261,10 +268,40 @@ export function Studio() {
             />
           )}
           {scene === "iklan" && (
-            <div className="page">
+            <div className="page ad-demo">
               <h2>Iklan Shopee</h2>
-              <p className="muted">Kalkulator tetap jalan kalau tabel iklan tidak ketemu.</p>
-              <RoasCard value={roas} onChange={setRoas} spend="20000" onSpend={() => undefined} tableNote="Tabel iklan belum ketemu di halaman ini." />
+              <p className="muted">Badge di tabel memakai HPP kalkulator dan PPN topup 11%.</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produk</th>
+                    <th>Penjualan</th>
+                    <th>Produk Terjual</th>
+                    <th>Konversi</th>
+                    <th>Biaya Iklan</th>
+                    <th>ROAS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Tumbler Stainless</td>
+                    <td>Rp890.000</td>
+                    <td>10</td>
+                    <td>8</td>
+                    <td>Rp50.000</td>
+                    <td>16,00</td>
+                  </tr>
+                  <tr>
+                    <td>Talenan Kayu</td>
+                    <td>Rp154.000</td>
+                    <td>2</td>
+                    <td>2</td>
+                    <td>Rp80.000</td>
+                    <td>1,50</td>
+                  </tr>
+                </tbody>
+              </table>
+              <RoasCard value={roas} onChange={setRoas} spend="20000" onSpend={() => undefined} tableNote={null} />
             </div>
           )}
           {scene === "profit" && (

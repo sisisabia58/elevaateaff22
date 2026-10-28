@@ -99,3 +99,54 @@ export function median(values: number[]): number {
 export function realProfit(input: { price: number; fees: number; hpp: number; ads: number }): number {
   return input.price - input.fees - input.hpp - input.ads;
 }
+
+export function parseShopeeNumber(raw: string | null | undefined): number | null {
+  if (raw == null) return null;
+  let text = raw.trim().replace(/rp/i, "").replace("%", "").trim();
+  if (!text || text === "-" || text === "—") return null;
+  const scaled = text.match(/^([\d.,]+)\s*(k|rb|jt|m|b)$/i);
+  if (scaled) {
+    const num = Number(scaled[1].replace(/\./g, "").replace(",", "."));
+    const multiplier = { k: 1_000, rb: 1_000, jt: 1_000_000, m: 1_000_000, b: 1_000_000_000 }[scaled[2].toLowerCase()] ?? 1;
+    return Number.isFinite(num) ? num * multiplier : null;
+  }
+  const cleaned = text.replace(/\./g, "").replace(",", ".");
+  const value = Number(cleaned);
+  return Number.isFinite(value) ? value : null;
+}
+
+export function computeProfitBersih(input: {
+  penjualan: number;
+  produkTerjual: number;
+  konversi: number | null;
+  biayaIklanAsli: number;
+  preset: RoasInput;
+}): { profitBersih: number; modal: number; biayaPlatform: number; biayaIklanAktual: number } {
+  const ppn = input.preset.ppnTopupPersen ?? 11;
+  const biayaIklanAktual = (1 + ppn / 100) * (input.biayaIklanAsli || 0);
+  const modal = ((input.preset.hpp || 0) + (input.preset.operasional || 0)) * input.produkTerjual;
+  const percent =
+    (input.preset.biayaAdministrasiPersen || 0) +
+    (input.preset.ongkirXtraPersen || 0) +
+    (input.preset.biayaLayananPersen || 0) +
+    (input.preset.biayaLainnyaPersen || 0) +
+    (input.preset.komisiAffiliatePersen || 0);
+  const biayaPlatform = (input.penjualan * percent) / 100 + (input.preset.biayaProsesPesanan || 0) * (input.konversi ?? input.produkTerjual);
+  return { profitBersih: input.penjualan - modal - biayaPlatform - biayaIklanAktual, modal, biayaPlatform, biayaIklanAktual };
+}
+
+export function profitBadgeText(profit: number): string {
+  const rounded = Math.abs(Math.round(profit)).toLocaleString("id-ID");
+  return profit >= 0 ? `Profit Rp${rounded}` : `Profit -Rp${rounded}`;
+}
+
+export function adRoasLabel(displayedRoas: number, preset: RoasInput): "Rugi" | "Cukup" | "Bagus" | "Perlu Setup" {
+  const tiers = hitungMultiTierROAS(preset);
+  const rugi = tiers.find((tier) => tier.key === "rugi");
+  const kompetitif = tiers.find((tier) => tier.key === "kompetitif");
+  if (!rugi?.valid || !kompetitif?.valid || rugi.targetROAS == null || kompetitif.targetROAS == null) return "Perlu Setup";
+  const actual = displayedRoas / (1 + (preset.ppnTopupPersen ?? 11) / 100);
+  if (actual <= rugi.targetROAS) return "Rugi";
+  if (actual <= kompetitif.targetROAS) return "Cukup";
+  return "Bagus";
+}

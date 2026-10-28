@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { priceHistogram, shopSummary } from "./research";
 import { detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
-import { classifyTier, hitungMultiTierROAS, hitungTargetROAS, median, realProfit, zoneFor } from "./roas";
+import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
 
 const item = (partial: Partial<ScoutItem> & Pick<ScoutItem, "itemId" | "price" | "sold">): ScoutItem => ({
@@ -36,6 +36,24 @@ describe("roas", () => {
 
   it("subtracts fees, hpp, and ads from price", () => {
     expect(realProfit({ price: 100, fees: 10, hpp: 40, ads: 5 })).toBe(45);
+  });
+
+  it("prices a row after the 11% ad top-up and names the zone", () => {
+    expect(parseShopeeNumber("Rp890.000")).toBe(890000);
+    expect(parseShopeeNumber("16,00")).toBe(16);
+    const result = computeProfitBersih({
+      penjualan: 890_000,
+      produkTerjual: 10,
+      konversi: 8,
+      biayaIklanAsli: 50_000,
+      preset: { hargaJual: 100_000, hpp: 40_000 },
+    });
+    expect(result.modal).toBe(400_000);
+    expect(result.biayaIklanAktual).toBeCloseTo(55_500, 5);
+    expect(result.profitBersih).toBeCloseTo(434_500, 5);
+    expect(profitBadgeText(result.profitBersih)).toBe("Profit Rp434.500");
+    expect(adRoasLabel(16, { hargaJual: 100_000, hpp: 40_000 })).toBe("Bagus");
+    expect(adRoasLabel(1.5, { hargaJual: 100_000, hpp: 40_000 })).toBe("Rugi");
   });
 });
 

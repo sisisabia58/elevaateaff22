@@ -5,6 +5,7 @@ import { loadBooks, saveBooks, type Books } from "../shared/books";
 import { downloadText } from "../shared/csv";
 import { formatMoney, marketFromHost } from "../shared/money";
 import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } from "../shared/research";
+import { stampAdTable } from "../shared/ad-badges";
 import { classifyTier, median, realProfit, type RoasInput } from "../shared/roas";
 import { hppFor } from "../shared/reports";
 import { callAiProxy, countSavedContacts, pingFeature, reportShopeeAccount, saveContacts } from "../shared/server";
@@ -100,15 +101,16 @@ function SellerApp() {
   }, [href]);
 
   useEffect(() => {
-    if (kind !== "ads") return;
+    if (kind !== "ads" || !books) return;
+    const ready = books.roas.hargaJual > 0 && books.roas.hpp > 0 ? books.roas : null;
     const look = () => {
-      const table = document.querySelector("table");
-      setTableNote(table ? null : "Tabel iklan belum ketemu di halaman ini.");
+      const stamped = stampAdTable(document, ready);
+      setTableNote(stamped ? "Badge laba memakai HPP kalkulator, setelah PPN topup 11%." : "Tabel iklan belum ketemu di halaman ini.");
     };
     look();
-    const timer = window.setInterval(look, 1500);
+    const timer = window.setInterval(look, 2000);
     return () => window.clearInterval(timer);
-  }, [kind, href]);
+  }, [kind, href, books]);
 
   const tiers = useMemo(() => {
     if (!rows.length) return [];
