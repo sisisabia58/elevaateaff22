@@ -40,7 +40,15 @@ export function classifyLocation(href: string): PageKind {
   if (path === "/" || path === "") return "other";
   if (/^\/(cart|buyer|user|checkout|help|login|verify|coins|flash_sale|mall)(\/|$)/.test(path)) return "other";
   if (path.startsWith("/search") || url.searchParams.has("keyword")) return "search";
+  if (/^\/[^/]+-cat(?:\.\d+)+$/.test(path)) return "category";
   return "shop";
+}
+
+export function marketChrome(kind: PageKind): { title: string; pill: string } | null {
+  if (kind === "search") return { title: "Riset market", pill: "Riset Market" };
+  if (kind === "category") return { title: "Analisa kategori", pill: "Analisa Kategori" };
+  if (kind === "shop") return { title: "Riset toko", pill: "Riset Toko" };
+  return null;
 }
 
 export function productUrl(origin: string, shopId: string, itemId: string): string {

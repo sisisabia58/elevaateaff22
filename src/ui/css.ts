@@ -53,6 +53,77 @@ export const elevateCss = `
   margin: 0 0 16px;
   box-shadow: none;
 }
+.ea-scout.market {
+  background: #fff;
+  border: 1px solid #f0f1f3;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+.ea-scout.market.dock { max-height: none; box-shadow: none; }
+.ea-scout.market.collapsed { overflow: hidden; }
+.ea-mkt-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-bottom: 1px solid #f0f1f3;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.ea-scout.collapsed .ea-mkt-head { border-bottom: 0; }
+.ea-mkt-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.ea-mkt-title { font-size: 15px; font-weight: 700; }
+.ea-mkt-badge {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.ea-mkt-collapse {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.ea-mkt-sub { margin: 0; padding: 12px 18px 0; font-size: 12px; color: #6b7280; }
+.ea-market-pill {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483646;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: #ee4d2d;
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+.ea-market-pill span { font-weight: 450; opacity: 0.85; }
 .ea-bars { display: flex; align-items: flex-end; gap: 6px; height: 72px; margin: 8px 0 4px; }
 .ea-bar { flex: 1; background: transparent; border: 0; padding: 0; min-height: 8px; display: flex; align-items: flex-end; }
 .ea-bar span { display: block; background: #0f6e56; width: 100%; border-radius: 6px 6px 0 0; min-height: 4px; }

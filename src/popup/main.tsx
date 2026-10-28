@@ -40,13 +40,13 @@ function PopupApp() {
       if (!current?.id || kind === "other") return;
       chrome.tabs.sendMessage(current.id, { type: "EA_GET_STATE" }, (response) => {
         if (chrome.runtime.lastError || !response) {
-          setTab({ ...next, label: kind === "product" ? "Halaman produk" : kind === "search" ? "Pencarian" : "Toko" });
+          setTab({ ...next, label: kind === "product" ? "Halaman produk" : kind === "search" ? "Pencarian" : kind === "category" ? "Kategori" : "Toko" });
           return;
         }
         const state = response as Partial<TabState>;
         setTab({
           kind: state.kind ?? kind,
-          label: state.label || (kind === "search" ? "Pencarian" : "Toko"),
+          label: state.label || (kind === "search" ? "Pencarian" : kind === "category" ? "Kategori" : "Toko"),
           item: state.item ?? null,
           scoutCount: state.scoutCount ?? 0,
           live: state.live ?? null,

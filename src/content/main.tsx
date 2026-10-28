@@ -11,13 +11,13 @@ import { priceHistogram, shopSummary } from "../shared/research";
 import { callAiProxy, callFeatureProxy, pingFeature, reportShopeeAccount } from "../shared/server";
 import { loadSettings } from "../shared/settings";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
-import { affiliateOriginFor, classifyLocation, parseShopeeIds } from "../shared/shopee";
+import { affiliateOriginFor, classifyLocation, marketChrome, parseShopeeIds } from "../shared/shopee";
 import { SOURCE, type CommissionView, type LiveCommission, type ScoutItem, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
 import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { RankingList } from "../ui/RankingList";
-import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
+import { MarketPill, ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { AffiliateClient } from "./affiliate-client";
 
 type PageMessage = {
@@ -104,6 +104,7 @@ function Overlay() {
   const [live, setLive] = useState<Record<string, LiveCommission>>({});
   const [cardClosed, setCardClosed] = useState(false);
   const [scoutClosed, setScoutClosed] = useState(false);
+  const [floatOpen, setFloatOpen] = useState(false);
   const [sort, setSort] = useState<ScoutSort>("commission");
   const [adsOnly, setAdsOnly] = useState(false);
   const [checkLabel, setCheckLabel] = useState("Cek komisi asli");
@@ -200,6 +201,7 @@ function Overlay() {
         setHref(location.href);
         setCardClosed(false);
         setScoutClosed(false);
+        setFloatOpen(false);
         setProduct(null);
         soldOutRef.current.clear();
         setItems([]);
@@ -219,7 +221,7 @@ function Overlay() {
   }, []);
 
   useEffect(() => {
-    if (kind !== "search" && kind !== "shop") {
+    if (kind !== "search" && kind !== "category" && kind !== "shop") {
       document.getElementById("ea-scout-dock")?.remove();
       setDockMount(null);
       return;
@@ -899,7 +901,8 @@ function Overlay() {
 
   if (!settings) return null;
   const showCard = kind === "product" && !cardClosed;
-  const showScout = settings.showScout && (kind === "search" || kind === "shop") && !scoutClosed;
+  const marketBar = marketChrome(kind);
+  const showScout = settings.showScout && marketBar !== null && !scoutClosed;
   const captions = product ? buildCaptions(product, market, settings.tone) : [];
   const visibleItems = adsOnly ? items.filter((item) => item.isAd) : items;
   const summary = kind === "shop" ? shopSummary(items) : null;
@@ -907,7 +910,9 @@ function Overlay() {
 
   const scout = (
     <ScoutPanel
-      title={`${kind === "shop" ? "Toko" : "Pencarian"} · ${scoutLabel} · ${items.length} produk`}
+      title={`${marketBar?.title ?? "Pencarian"} · ${scoutLabel} · ${items.length} produk`}
+      marketTitle={marketBar?.title}
+      initialAnalisa
       items={items}
       market={market}
       commissions={commissions}
@@ -917,7 +922,7 @@ function Overlay() {
       onCheckLive={() => void checkLive()}
       onExport={() => downloadText("elevate-affiliate.csv", scoutCsv(visibleItems, commissions))}
       checkLabel={checkLabel}
-      onClose={() => setScoutClosed(true)}
+      onClose={() => (dockMount ? setScoutClosed(true) : setFloatOpen(false))}
       placement={dockMount ? "dock" : "float"}
       summary={summary}
       histogram={histogram}
@@ -997,7 +1002,10 @@ function Overlay() {
           )
         : null}
       {showScout && dockMount ? createPortal(scout, dockMount) : null}
-      {showScout && !dockMount ? scout : null}
+      {showScout && !dockMount && floatOpen ? scout : null}
+      {showScout && !dockMount && !floatOpen && marketBar ? (
+        <MarketPill label={marketBar.pill} count={items.length} onOpen={() => setFloatOpen(true)} />
+      ) : null}
     </>
   );
 }

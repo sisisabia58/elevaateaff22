@@ -82,6 +82,8 @@ describe("shopee pages", () => {
     expect(parseShopeeIds("https://shopee.co.id/Tumbler-i.100.200")).toEqual({ shopId: "100", itemId: "200" });
     expect(classifyLocation("https://shopee.co.id/Tumbler-i.100.200")).toBe("product");
     expect(classifyLocation("https://shopee.co.id/search?keyword=tumbler")).toBe("search");
+    expect(classifyLocation("https://shopee.co.id/Peralatan-Dapur-cat.11043350")).toBe("category");
+    expect(classifyLocation("https://shopee.co.id/Peralatan-Dapur-cat.11043350.1104")).toBe("category");
     expect(classifyLocation("https://shopee.co.id/dapurkecil")).toBe("shop");
     expect(classifyLocation("https://shopee.co.id/cart")).toBe("other");
     expect(classifyLocation("https://seller.shopee.co.id/portal")).toBe("other");

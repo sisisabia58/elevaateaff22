@@ -23,6 +23,17 @@ export function sortScout(items: ScoutItem[], commissions: Record<string, Commis
   return list;
 }
 
+export function MarketPill({ label, count, onOpen }: { label: string; count: number; onOpen: () => void }) {
+  return (
+    <div className="ea-root">
+      <style>{elevateCss}</style>
+      <button className="ea-market-pill" type="button" onClick={onOpen}>
+        {label} <span>({count})</span>
+      </button>
+    </div>
+  );
+}
+
 export function ScoutPanel({
   title,
   items,
@@ -56,6 +67,7 @@ export function ScoutPanel({
   onSoldOut,
   onCategory,
   onShopResearch,
+  marketTitle,
 }: {
   title: string;
   items: ScoutItem[];
@@ -89,28 +101,57 @@ export function ScoutPanel({
   onSoldOut?: () => void;
   onCategory?: () => void;
   onShopResearch?: () => void;
+  marketTitle?: string;
 }) {
-  const [analisa, setAnalisa] = useState(initialAnalisa);
+  const [analisa, setAnalisa] = useState(initialAnalisa || Boolean(marketTitle));
+  const [collapsed, setCollapsed] = useState(false);
+  const shopCount = new Set(items.map((item) => item.shopId || item.shopName).filter(Boolean)).size;
   const visible = adsOnly ? items.filter((item) => item.isAd) : items;
   const ordered = sortScout(visible, commissions, sort);
   const maxBucket = Math.max(1, ...histogram.map((bucket) => bucket.count));
-  const className = `${placement === "dock" ? "ea-scout dock" : embedded ? "ea-scout embedded" : "ea-scout"}${analisa ? " analisa" : ""}`;
+  const className = `${placement === "dock" ? "ea-scout dock" : embedded ? "ea-scout embedded" : "ea-scout"}${analisa ? " analisa" : ""}${marketTitle ? " market" : ""}${collapsed ? " collapsed" : ""}`;
+  function toggleMarket() {
+    if (marketTitle && placement === "float") {
+      onClose();
+      return;
+    }
+    setCollapsed((value) => !value);
+  }
   return (
     <div className="ea-root">
       <style>{elevateCss}</style>
       <aside className={className} aria-label="Scout Elevate Affiliate">
-        <div className="ea-scout-head">
-          <div className="ea-mark">E</div>
-          <div className="ea-brand">
-            Elevate Affiliate
-            <small>{title}</small>
-          </div>
-          <div className="ea-spacer" />
-          <button className="ea-icon-btn" type="button" onClick={onClose} aria-label="Tutup scout">
-            ×
+        {marketTitle ? (
+          <button className="ea-mkt-head" type="button" aria-expanded={!collapsed} onClick={toggleMarket}>
+            <span className="ea-mkt-icon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" x2="12" y1="20" y2="10" />
+                <line x1="18" x2="18" y1="20" y2="4" />
+                <line x1="6" x2="6" y1="20" y2="16" />
+              </svg>
+            </span>
+            <span className="ea-mkt-title">{marketTitle}</span>
+            <span className="ea-mkt-badge">Elevate</span>
+            <span className="ea-spacer" />
+            <span className="ea-mkt-collapse" aria-hidden="true">{collapsed ? "▾" : "▴"}</span>
           </button>
-        </div>
-        {summary && (
+        ) : (
+          <div className="ea-scout-head">
+            <div className="ea-mark">E</div>
+            <div className="ea-brand">
+              Elevate Affiliate
+              <small>{title}</small>
+            </div>
+            <div className="ea-spacer" />
+            <button className="ea-icon-btn" type="button" onClick={onClose} aria-label="Tutup scout">
+              ×
+            </button>
+          </div>
+        )}
+        {marketTitle && !collapsed && (
+          <p className="ea-mkt-sub">Berdasarkan {items.length} produk dari {shopCount || "-"} toko</p>
+        )}
+        {!collapsed && !marketTitle && summary && (
           <div className="ea-summary">
             <div>
               <strong>{summary.count}</strong>
@@ -128,7 +169,7 @@ export function ScoutPanel({
             </div>
           </div>
         )}
-        {histogram.length > 0 && (
+        {!collapsed && !marketTitle && histogram.length > 0 && (
           <div className="ea-body">
             <div className="ea-kicker">Sebaran harga</div>
             <div className="ea-bars" aria-hidden="true">
@@ -140,7 +181,7 @@ export function ScoutPanel({
             </div>
           </div>
         )}
-        {items.length === 0 ? (
+        {!collapsed && (items.length === 0 ? (
           <div className="ea-body">
             <div className="ea-empty">
               <strong>Belum ada produk tercatat.</strong>
@@ -241,7 +282,7 @@ export function ScoutPanel({
             </>
             )}
           </>
-        )}
+        ))}
       </aside>
     </div>
   );

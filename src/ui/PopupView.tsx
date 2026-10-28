@@ -81,12 +81,14 @@ export function PopupView({
               Kartu di halaman akan terisi setelah Shopee mengirim detailnya.
             </div>
           )}
-          {(kind === "search" || kind === "shop") && (
+          {(kind === "search" || kind === "category" || kind === "shop") && (
             <div className="ea-empty">
               <strong>{scoutCount > 0 ? `${scoutCount} produk tercatat di halaman ini.` : "Scout menunggu produk."}</strong>
-              {kind === "search"
-                ? "Tombol Analisa ada di panel Elevate di atas daftar produk."
-                : "Tombol Analisa ada di panel Elevate di halaman toko ini."}
+              {kind === "shop"
+                ? "Riset toko menempel di atas daftar produk."
+                : kind === "category"
+                  ? "Analisa kategori menempel di atas daftar produk."
+                  : "Riset market menempel di atas daftar produk."}
             </div>
           )}
           {note && <div className="ea-status">{note}</div>}

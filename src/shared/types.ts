@@ -14,7 +14,7 @@ export type Market = {
   locale: string;
 };
 
-export type PageKind = "product" | "search" | "shop" | "other";
+export type PageKind = "product" | "search" | "category" | "shop" | "other";
 
 export type ProductModel = {
   name: string;

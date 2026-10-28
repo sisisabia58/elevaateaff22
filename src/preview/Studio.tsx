@@ -208,7 +208,7 @@ export function Studio() {
           {scene === "search" && (
             <div className="page">
               <h2>tumbler</h2>
-              <p className="muted">Hasil toko demo. Scout menempel di atas daftar.</p>
+              <p className="muted">Hasil toko demo. Riset toko menempel di atas daftar.</p>
               {settings.showScout && scoutOpen && (
                 <ScoutPanel
                   title={`Toko · Dapur Kecil · ${items.length} produk`}
@@ -223,6 +223,7 @@ export function Studio() {
                   checkLabel={checkLabel}
                   onClose={() => setScoutOpen(false)}
                   placement="dock"
+                  marketTitle="Riset toko"
                   initialAnalisa
                   summary={summary}
                   histogram={histogram}
