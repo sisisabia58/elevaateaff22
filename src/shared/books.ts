@@ -14,6 +14,8 @@ export type Books = {
   operasional: number;
   iklan: number;
   iklanManual: boolean;
+  iklanPeriode: string | null;
+  iklanToko: string | null;
   roas: RoasInput;
   presets: Record<string, RoasPreset>;
   imports: ImportEntry[];
@@ -29,6 +31,8 @@ export const EMPTY_BOOKS: Books = {
   operasional: 0,
   iklan: 0,
   iklanManual: false,
+  iklanPeriode: null,
+  iklanToko: null,
   roas: EMPTY_ROAS,
   presets: {},
   imports: [],
@@ -80,7 +84,7 @@ export async function loadBooks(): Promise<Books> {
   const key = await ownerKey();
   try {
     const stored = await idbGet(key);
-    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [], importLog: stored.importLog || [], iklan: stored.iklan || 0, iklanManual: Boolean(stored.iklanManual) };
+    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [], importLog: stored.importLog || [], iklan: stored.iklan || 0, iklanManual: Boolean(stored.iklanManual), iklanPeriode: stored.iklanPeriode ?? null, iklanToko: stored.iklanToko ?? null };
   } catch {
     /* IndexedDB unavailable */
   }
@@ -88,7 +92,7 @@ export async function loadBooks(): Promise<Books> {
     const raw = localStorage.getItem(localKey(key));
     if (!raw) return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
     const parsed = JSON.parse(raw) as Books;
-    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [], importLog: parsed.importLog || [], iklan: parsed.iklan || 0, iklanManual: Boolean(parsed.iklanManual) };
+    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [], importLog: parsed.importLog || [], iklan: parsed.iklan || 0, iklanManual: Boolean(parsed.iklanManual), iklanPeriode: parsed.iklanPeriode ?? null, iklanToko: parsed.iklanToko ?? null };
   } catch {
     return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
   }

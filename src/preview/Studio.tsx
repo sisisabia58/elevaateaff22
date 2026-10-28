@@ -625,6 +625,9 @@ export function Studio() {
                 setIklan(value);
                 setIklanManual(manual);
               }}
+              adPeriod="01/10/2026 - 28/10/2026"
+              adStore="Dapur Kecil"
+              adsLoaded
               periods={listPeriods(ledger.orders, ledger.finance, profitBasis, profitStores)}
               period={profitPeriod}
               onPeriod={setProfitPeriod}

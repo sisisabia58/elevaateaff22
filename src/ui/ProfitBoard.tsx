@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { formatCount, formatMoney, marketFromHost } from "../shared/money";
 import { clearDataConfirm, IMPORT_TYPE_LABELS, importLogRowsLabel, importLogTime, importStatus, type ImportEntry, type ImportLogEntry } from "../shared/imports";
-import { adChartLabel, adGapNote, adSignal, clipAdName, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
+import { adChartLabel, adGapNote, adSignal, clipAdName, headerPeriod, hppImportFailure, hppMaster, periodLabel, skuDisplayLabel, toggleStore, type AdDetail, type DateBasis, type HppLine, type ProfitCharts, type ProfitSnapshot, type ProfitWindow } from "../shared/reports";
 import { elevateCss } from "./css";
 
 const market = marketFromHost("shopee.co.id");
@@ -50,6 +50,9 @@ export function ProfitBoard({
   onStores,
   imports,
   importLog,
+  adPeriod = null,
+  adStore = null,
+  adsLoaded = false,
   onExportBackup,
   onRestoreBackup,
   onClearData,
@@ -76,6 +79,9 @@ export function ProfitBoard({
   onStores?: (filter: string[] | null) => void;
   imports?: ImportEntry[];
   importLog?: ImportLogEntry[];
+  adPeriod?: string | null;
+  adStore?: string | null;
+  adsLoaded?: boolean;
   onExportBackup?: () => void;
   onRestoreBackup?: (file: File) => Promise<string>;
   onClearData?: () => void;
@@ -95,7 +101,18 @@ export function ProfitBoard({
       <div className="ea-dash">
         <div className="ea-dash-wrap">
           <div className="ea-mark">E</div>
-          <h1>Laba</h1>
+          <h1 id="hdr-title">{adStore ? `Laba · ${adStore}` : "Laba"}</h1>
+          {snapshot && (
+            <div className="meta" id="hdr-meta">
+              <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8 2v4" />
+                <path d="M16 2v4" />
+                <rect width="18" height="18" x="3" y="4" rx="2" />
+                <path d="M3 10h18" />
+              </svg>
+              {headerPeriod({ period, range, ads: adsLoaded ? 1 : 0, adPeriod })}
+            </div>
+          )}
           {snapshot && (
             <div className="stat-chips" id="hdr-chips">
               <div className="stat-chip">Total Order: <strong>{snapshot.activeOrders + snapshot.cancelledOrders}</strong></div>

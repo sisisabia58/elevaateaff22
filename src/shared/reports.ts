@@ -227,9 +227,10 @@ export function peekStoreName(grid: string[][]): string | null {
   return null;
 }
 
-export function locateExport(grid: string[][]): { headers: string[]; rows: string[][]; adFrom: string | null; adTo: string | null; store: string | null } {
+export function locateExport(grid: string[][]): { headers: string[]; rows: string[][]; adFrom: string | null; adTo: string | null; adPeriod: string | null; store: string | null } {
   let adFrom: string | null = null;
   let adTo: string | null = null;
+  let adPeriod: string | null = null;
   let headerIndex = 0;
   const store = peekStoreName(grid);
   const scan = Math.min(grid.length, 40);
@@ -237,7 +238,8 @@ export function locateExport(grid: string[][]): { headers: string[]; rows: strin
     const cells = grid[index] || [];
     const label = (cells[0] || "").trim().toLowerCase();
     if (label === "periode" || label.startsWith("periode")) {
-      const raw = cells.slice(1).join(" ");
+      const raw = cells.slice(1).map((cell) => cell ?? "").join(",").trim();
+      adPeriod = raw || null;
       const dates = [...raw.matchAll(/(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/g)]
         .map((match) => parseShopeeDate(match[1]))
         .filter((date): date is string => Boolean(date));
@@ -255,12 +257,14 @@ export function locateExport(grid: string[][]): { headers: string[]; rows: strin
       break;
     }
   }
-  return { headers: grid[headerIndex] || [], rows: grid.slice(headerIndex + 1), adFrom, adTo, store };
+  return { headers: grid[headerIndex] || [], rows: grid.slice(headerIndex + 1), adFrom, adTo, adPeriod, store };
 }
 
 export function parseExportGrid(grid: string[][]): {
   kind: ExportKind;
   store: string;
+  shop: string | null;
+  adPeriod: string | null;
   orders: OrderRow[];
   finance: FinanceRow[];
   ads: AdRow[];
@@ -271,6 +275,8 @@ export function parseExportGrid(grid: string[][]): {
   return {
     ...parsed,
     store,
+    shop: located.store,
+    adPeriod: located.adPeriod,
     orders: parsed.orders.map((row) => ({ ...row, store })),
     finance: parsed.finance.map((row) => ({ ...row, store })),
     ads: parsed.ads.map((row) => ({ ...row, store })),
@@ -629,6 +635,23 @@ export function monthWindow(period: string): ProfitWindow {
 export function periodLabel(period: string): string {
   const [year, month] = period.split("-");
   return `${MONTHS[Number(month) - 1] || period} ${year}`;
+}
+
+function fmtDateShort(iso: string): string {
+  const [, month, day] = iso.split("-");
+  return `${day}/${month}`;
+}
+
+/** SENA renderHeader: selected window, then the ads file's own Periode line when any ads are loaded. */
+export function headerPeriod(input: { period?: string | null; range?: ProfitWindow | null; ads?: number; adPeriod?: string | null }): string {
+  const range = input.range?.from && input.range?.to ? input.range : null;
+  const periodStr = range
+    ? `${fmtDateShort(range.from)}/${range.from.slice(0, 4)} – ${fmtDateShort(range.to)}/${range.to.slice(0, 4)}`
+    : input.period
+      ? periodLabel(input.period)
+      : "Semua Periode";
+  if (!input.ads) return periodStr;
+  return `${periodStr} · Iklan: ${input.adPeriod || "—"}`;
 }
 
 export function listPeriods(orders: OrderRow[], finance: FinanceRow[], basis: DateBasis = "created", storeFilter?: string[] | null): string[] {

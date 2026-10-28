@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parsePerformance, priceHistogram, shopSummary } from "./research";
-import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore, upsertAds, upsertFinance, upsertOrders } from "./reports";
+import { adCampaigns, adChartLabel, adFraction, adGapNote, adSignal, clipAdName, dateBasisWarning, demoProfitSnapshot, detectExportKind, headerPeriod, hppCoverage, hppImportMessage, hppLines, hppMaster, listPeriods, listStores, mergeStoreRows, monthWindow, parseCsv, parseExportGrid, parseHppCsv, parseTable, periodLabel, profitCharts, shippingClass, skuDisplayLabel, snapshot, studioLedger, toggleStore, upsertAds, upsertFinance, upsertOrders } from "./reports";
 import { perfExtras } from "./perf-metrics";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -267,6 +267,25 @@ describe("shopee exports", () => {
       ["Tumbler", "10000", "40000", "2"],
     ]);
     expect(ads.ads[0]).toMatchObject({ periodFrom: "2026-10-01", periodTo: "2026-10-28", spend: 10_000 });
+    expect(ads.adPeriod).toBe("01/10/2026 - 28/10/2026");
+    expect(ads.shop).toBeNull();
+  });
+
+  it("shows the selected window and the ads file period on the profit header", () => {
+    expect(headerPeriod({})).toBe("Semua Periode");
+    expect(headerPeriod({ period: "2026-10", ads: 2, adPeriod: "01/10/2026 - 28/10/2026" })).toBe("Okt 2026 · Iklan: 01/10/2026 - 28/10/2026");
+    expect(headerPeriod({ range: { from: "2026-10-15", to: "2026-10-20" }, ads: 1, adPeriod: null })).toBe("15/10/2026 – 20/10/2026 · Iklan: —");
+    expect(headerPeriod({ ads: 1 })).toBe("Semua Periode · Iklan: —");
+    const named = parseExportGrid([
+      ["Nama Toko", "Dapur Kecil"],
+      ["Periode", "01/08/2026 - 31/08/2026"],
+      ["Nama Iklan", "Biaya", "Omzet Penjualan"],
+      ["Wajan", "8000", "12000"],
+    ]);
+    expect(named.shop).toBe("Dapur Kecil");
+    expect(named.store).toBe("Dapur Kecil");
+    expect(named.adPeriod).toBe("01/08/2026 - 31/08/2026");
+    expect(named.ads[0]).toMatchObject({ periodFrom: "2026-08-01", periodTo: "2026-08-31", store: "Dapur Kecil" });
   });
 
   it("moves laba when the date basis changes and joins the report that lacks that column", () => {

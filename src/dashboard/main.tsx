@@ -106,6 +106,8 @@ function DashboardApp() {
         orders: orders ? orders.rows : books.orders,
         finance: finance ? finance.rows : books.finance,
         ads: ads ? ads.rows : books.ads,
+        iklanPeriode: parsed.kind === "iklan" ? parsed.adPeriod : books.iklanPeriode,
+        iklanToko: parsed.kind === "iklan" ? parsed.shop : books.iklanToko,
         imports: rememberImport(books.imports, { type: parsed.kind, filename: file.name, ts: Date.now() }),
         importLog: rememberLog(books.importLog, { ts: Date.now(), type: parsed.kind, filename: file.name, store, added: stats.added, updated: stats.updated }),
       };
@@ -141,7 +143,8 @@ function DashboardApp() {
                 onClick={() => {
                   const orders = parseExportGrid(gridOf(SAMPLE_ORDERS)).orders;
                   const finance = parseExportGrid(gridOf(SAMPLE_FINANCE)).finance;
-                  const ads = parseExportGrid(gridOf(SAMPLE_ADS)).ads;
+                  const sampleAds = parseExportGrid(gridOf(SAMPLE_ADS));
+                  const ads = sampleAds.ads;
                   const now = Date.now();
                   void persist({
                     ...books,
@@ -149,6 +152,8 @@ function DashboardApp() {
                     finance,
                     ads,
                     hpp: { ...books.hpp, SKU1: 15000 },
+                    iklanPeriode: sampleAds.adPeriod,
+                    iklanToko: sampleAds.shop,
                     imports: [
                       { type: "pesanan", filename: "contoh-pesanan.csv", ts: now },
                       { type: "keuangan", filename: "contoh-keuangan.csv", ts: now },
@@ -260,6 +265,9 @@ function DashboardApp() {
         onIklan={(value, manual) => {
           void persist({ ...books, iklan: value, iklanManual: manual }, null);
         }}
+        adPeriod={books.iklanPeriode}
+        adStore={books.iklanToko}
+        adsLoaded={books.ads.length > 0}
         imports={books.imports}
         onClaim={(orderNo, claimed) => {
           const next = claimed ? [...books.claimed, orderNo] : books.claimed.filter((id) => id !== orderNo);

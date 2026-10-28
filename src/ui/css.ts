@@ -352,6 +352,8 @@ export const elevateCss = `
 .ea-zone b { display: block; font-size: 16px; }
 .ea-dash { background: #f7f3ec; min-height: 100%; padding: 28px 16px 48px; }
 .ea-dash h1 { font-size: 28px; line-height: 1.15; margin: 8px 0 6px; letter-spacing: -0.03em; }
+#hdr-meta { color: #6b7280; font-size: 12px; margin: 4px 0 8px; display: flex; align-items: center; gap: 8px; }
+#hdr-meta svg { flex-shrink: 0; }
 .ea-dash .lede { color: #6d655b; margin: 0 0 12px; }
 .ea-dash-wrap { max-width: 960px; margin: 0 auto; }
 .ea-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
