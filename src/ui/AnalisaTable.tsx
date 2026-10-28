@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
-import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
+import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, searchOverview, shopAgeBucket, shopOverview, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
 import { analyticsCsv, downloadText } from "../shared/csv";
-import { formatMoney, formatRate } from "../shared/money";
+import { formatAgeShort, formatBigMoney, formatMoney, formatRate, formatShortMoney } from "../shared/money";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 
@@ -27,6 +27,84 @@ function metricNumber(metrics: ItemMetrics | undefined, key: SortKey, commission
   return null;
 }
 
+function statDelta(current: number | null, base: number | null) {
+  if (current == null || base == null || base <= 0) return null;
+  const pct = ((current - base) / base) * 100;
+  const up = pct >= 0;
+  return (
+    <em className={up ? "up" : "down"}>
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    </em>
+  );
+}
+
+function SearchStats({ items, market, now }: { items: ScoutItem[]; market: Market; now: number }) {
+  const overview = searchOverview(items, now);
+  const price =
+    overview.priceMin != null && overview.priceMax != null
+      ? `${formatShortMoney(overview.priceMin, market)}–${formatShortMoney(overview.priceMax, market)}`
+      : "-";
+  const age =
+    overview.ageMinDays != null && overview.ageMaxDays != null
+      ? `${formatAgeShort(overview.ageMinDays, market)}–${formatAgeShort(overview.ageMaxDays, market)}`
+      : "-";
+  const trend = overview.trendPct == null ? "-" : `${overview.trendPct >= 0 ? "+" : ""}${overview.trendPct}%`;
+  return (
+    <div className="ea-mkt-stats">
+      <div>
+        <span>Market size</span>
+        <strong>{overview.marketSize == null ? "-" : formatBigMoney(overview.marketSize, market)}</strong>
+      </div>
+      <div>
+        <span>Rentang harga</span>
+        <strong>{price}</strong>
+      </div>
+      <div>
+        <span>Rentang umur listing</span>
+        <strong>{age}</strong>
+      </div>
+      <div>
+        <span title="Rata-rata trend 30 hari terakhir">Trend</span>
+        <strong>{trend}</strong>
+      </div>
+    </div>
+  );
+}
+
+function ShopStats({ items, market, now }: { items: ScoutItem[]; market: Market; now: number }) {
+  const overview = shopOverview(items, now);
+  const price =
+    overview.priceMin != null && overview.priceMax != null
+      ? `${formatShortMoney(overview.priceMin, market)}–${formatShortMoney(overview.priceMax, market)}`
+      : "-";
+  return (
+    <div className="ea-mkt-stats">
+      <div>
+        <span>Estimasi omset/bln</span>
+        <strong>{overview.omsetPerBulan == null ? "-" : formatBigMoney(overview.omsetPerBulan, market)}</strong>
+      </div>
+      <div>
+        <span>Omset 30 hari terakhir</span>
+        <strong>
+          {overview.omset30d == null ? "-" : formatBigMoney(overview.omset30d, market)}
+          {statDelta(overview.omset30d, overview.omsetPerBulan)}
+        </strong>
+      </div>
+      <div>
+        <span>Rentang harga</span>
+        <strong>{price}</strong>
+      </div>
+      <div>
+        <span>Penjualan 30 hari terakhir</span>
+        <strong>
+          {overview.sold30d == null ? "-" : `${Math.round(overview.sold30d).toLocaleString("id-ID")} terjual`}
+          {statDelta(overview.sold30d, overview.soldPerMonth)}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
 export function AnalisaTable({
   items,
   market,
@@ -43,6 +121,7 @@ export function AnalisaTable({
   onSoldOut,
   onCategory,
   onShopResearch,
+  surface,
 }: {
   items: ScoutItem[];
   market: Market;
@@ -59,6 +138,7 @@ export function AnalisaTable({
   onSoldOut?: () => void;
   onCategory?: () => void;
   onShopResearch?: () => void;
+  surface?: "search" | "shop";
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("sold30");
@@ -134,6 +214,9 @@ export function AnalisaTable({
 
   return (
     <div className="ea-analisa">
+      {surface === "search" && <SearchStats items={items} market={market} now={now} />}
+      {surface === "shop" && <ShopStats items={items} market={market} now={now} />}
+      {!surface && (
       <div className="ea-summary">
         <div>
           <strong>{summary.count}</strong>
@@ -166,6 +249,7 @@ export function AnalisaTable({
           </div>
         )}
       </div>
+      )}
       {searched.length > 0 && (
         <div className="ea-body">
           <div className="ea-kicker">{dimensionLabel}</div>

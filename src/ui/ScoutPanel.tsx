@@ -222,7 +222,7 @@ export function ScoutPanel({
               )}
               {onPaginate && (
                 <button className="ea-btn" type="button" onClick={onPaginate} disabled={running}>
-                  Halaman berikut
+                  {marketTitle ? "Lihat lebih" : "Halaman berikut"}
                 </button>
               )}
               {onShopNote && (
@@ -252,6 +252,7 @@ export function ScoutPanel({
                 onSoldOut={onSoldOut}
                 onCategory={onCategory}
                 onShopResearch={onShopResearch}
+                surface={marketTitle === "Riset toko" ? "shop" : marketTitle ? "search" : undefined}
               />
             )}
             {!analisa && (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aiItemInfo, buildCaptions, hasAddToCart, hasBuyNow, isOwnShop, localThread, parseThreadParts, reviewFeature } from "./captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "./commission";
-import { estimateCommission, formatMoney, formatRate, marketFromHost, shopeeRawToMajor } from "./money";
+import { estimateCommission, formatAgeShort, formatBigMoney, formatMoney, formatRate, formatShortMoney, marketFromHost, shopeeRawToMajor } from "./money";
 import { normalizeSettings } from "./settings";
 import { classifyLocation, extractItemList, listKindFromUrl, parseScoutEntry, parseShopeeIds } from "./shopee";
 import { DEFAULT_SETTINGS, type ScoutItem } from "./types";
@@ -27,6 +27,11 @@ describe("money", () => {
 
   it("formats IDR without decimals and MYR with decimals", () => {
     expect(formatMoney(89000, marketFromHost("shopee.co.id"))).toBe("Rp89.000");
+    expect(formatBigMoney(66_288_000, marketFromHost("shopee.co.id"))).toBe("Rp66,3Jt");
+    expect(formatShortMoney(29_000, marketFromHost("shopee.co.id"))).toBe("Rp29rb");
+    expect(formatShortMoney(1_200_000, marketFromHost("shopee.co.id"))).toBe("Rp1,2jt");
+    expect(formatAgeShort(45, marketFromHost("shopee.co.id"))).toBe("2 bln");
+    expect(formatAgeShort(400, marketFromHost("shopee.co.id"))).toBe("1,1 thn");
     expect(formatMoney(-5000, marketFromHost("shopee.co.id"))).toBe("–Rp5.000");
     expect(formatMoney(19.5, marketFromHost("shopee.com.my"))).toBe("RM 19.50");
   });

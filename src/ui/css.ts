@@ -166,6 +166,13 @@ export const elevateCss = `
 .ea-summary div { background: #f7f3ec; border-radius: 10px; padding: 8px 10px; min-width: 90px; }
 .ea-summary strong { display: block; font-size: 14px; }
 .ea-summary span { color: #6d655b; font-size: 11px; }
+.ea-mkt-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 12px 14px 4px; }
+.ea-mkt-stats div { background: #f7f3ec; border-radius: 10px; padding: 8px 10px; }
+.ea-mkt-stats span { display: block; font-size: 10.5px; color: #6b7280; margin-bottom: 3px; }
+.ea-mkt-stats strong { display: block; font-size: 14px; line-height: 1.3; }
+.ea-mkt-stats em { font-style: normal; font-size: 11px; margin-left: 4px; }
+.ea-mkt-stats em.up { color: #0f6e56; }
+.ea-mkt-stats em.down { color: #9f1239; }
 .ea-popup { width: 360px; min-height: 280px; background: #f7f3ec; }
 .ea-options { max-width: 720px; }
 
@@ -393,6 +400,6 @@ export const elevateCss = `
 @media (max-width: 720px) {
   .ea-card, .ea-scout:not(.dock) { left: 12px; right: 12px; width: auto; }
   .ea-scout:not(.dock) { top: 12px; }
-  .ea-metrics { grid-template-columns: 1fr 1fr; }
+  .ea-metrics, .ea-mkt-stats { grid-template-columns: 1fr 1fr; }
 }
 `;

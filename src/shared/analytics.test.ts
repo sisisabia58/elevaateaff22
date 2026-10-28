@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
+import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, searchOverview, shopAgeBucket, shopOverview, shopRelation, tallyReviews } from "./analytics";
 import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
@@ -31,6 +31,28 @@ describe("product analytics", () => {
     expect(metrics.omset30d).toBe(15_000_000);
     expect(metrics.omsetPerBulan).toBeCloseTo(10_000_000, 0);
     expect(metrics.totalOmset).toBe(30_000_000);
+  });
+
+  it("sums market size from 30-day omzet and keeps the price and age span", () => {
+    const items = [
+      product({ itemId: "a", price: 50_000, ctime: NOW / 1000 - 20 * 86400, monthlySold: 10, sold: 10 }),
+      product({ itemId: "b", price: 1_200_000, ctime: NOW / 1000 - 400 * 86400, monthlySold: 20, sold: 400 }),
+    ];
+    const overview = searchOverview(items, NOW);
+    expect(overview.marketSize).toBe(50_000 * 10 + 1_200_000 * 20);
+    expect(overview.priceMin).toBe(50_000);
+    expect(overview.priceMax).toBe(1_200_000);
+    expect(overview.ageMinDays).toBeCloseTo(20, 5);
+    expect(overview.ageMaxDays).toBeCloseTo(400, 5);
+  });
+
+  it("sums shop omzet per month and the last 30 days", () => {
+    const items = [product({ itemId: "a" }), product({ itemId: "b", price: 20_000, monthlySold: 40, sold: 80 })];
+    const overview = shopOverview(items, NOW);
+    expect(overview.omset30d).toBe(15_000_000 + 800_000);
+    expect(overview.sold30d).toBe(190);
+    expect(overview.priceMin).toBe(20_000);
+    expect(overview.priceMax).toBe(100_000);
   });
 
   it("drops the false one-sold signal and hides trend on a young listing", () => {

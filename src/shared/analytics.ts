@@ -75,6 +75,57 @@ export function shopAgeBucket(ctime: number | null | undefined, nowMs = Date.now
   return ">5 thn";
 }
 
+export type SearchOverview = {
+  marketSize: number | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  ageMinDays: number | null;
+  ageMaxDays: number | null;
+  trendPct: number | null;
+};
+
+export type ShopOverview = {
+  omsetPerBulan: number | null;
+  omset30d: number | null;
+  sold30d: number | null;
+  soldPerMonth: number | null;
+  priceMin: number | null;
+  priceMax: number | null;
+};
+
+export function searchOverview(items: ScoutItem[], nowMs = Date.now()): SearchOverview {
+  const metrics = items.map((item) => itemMetrics(item, nowMs));
+  const prices = items.map((item) => item.price).filter((price) => price > 0);
+  const ages = metrics.map((row) => row.ageDays).filter((age): age is number => age !== null && age >= 0);
+  const trends = metrics.map((row) => row.trendPct).filter((trend): trend is number => trend !== null);
+  const sized = metrics.some((row) => row.omset30d !== null);
+  return {
+    marketSize: sized ? metrics.reduce((sum, row) => sum + (row.omset30d ?? 0), 0) : null,
+    priceMin: prices.length ? Math.min(...prices) : null,
+    priceMax: prices.length ? Math.max(...prices) : null,
+    ageMinDays: ages.length ? Math.min(...ages) : null,
+    ageMaxDays: ages.length ? Math.max(...ages) : null,
+    trendPct: trends.length ? Math.round(trends.reduce((sum, value) => sum + value, 0) / trends.length) : null,
+  };
+}
+
+export function shopOverview(items: ScoutItem[], nowMs = Date.now()): ShopOverview {
+  const metrics = items.map((item) => itemMetrics(item, nowMs));
+  const prices = items.map((item) => item.price).filter((price) => price > 0);
+  const monthly = metrics.some((row) => row.omsetPerBulan !== null);
+  const recent = metrics.some((row) => row.omset30d !== null);
+  const sold = metrics.some((row) => row.sold30d !== null);
+  const pace = metrics.some((row) => row.soldPerMonth !== null);
+  return {
+    omsetPerBulan: monthly ? metrics.reduce((sum, row) => sum + (row.omsetPerBulan ?? 0), 0) : null,
+    omset30d: recent ? metrics.reduce((sum, row) => sum + (row.omset30d ?? 0), 0) : null,
+    sold30d: sold ? metrics.reduce((sum, row) => sum + (row.sold30d ?? 0), 0) : null,
+    soldPerMonth: pace ? metrics.reduce((sum, row) => sum + (row.soldPerMonth ?? 0), 0) : null,
+    priceMin: prices.length ? Math.min(...prices) : null,
+    priceMax: prices.length ? Math.max(...prices) : null,
+  };
+}
+
 export function pageAnalytics(items: ScoutItem[], nowMs = Date.now()): PageAnalytics {
   const metrics = items.map((item) => itemMetrics(item, nowMs));
   const trends = metrics.map((row) => row.trendPct).filter((value): value is number => value !== null);
