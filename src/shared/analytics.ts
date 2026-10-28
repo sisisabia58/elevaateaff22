@@ -1,4 +1,5 @@
-import type { ScoutItem } from "./types";
+import { formatRibuShort } from "./money";
+import type { Market, ScoutItem } from "./types";
 
 export type ItemMetrics = {
   ageDays: number | null;
@@ -227,6 +228,27 @@ export function bucketMeasure(bucket: MetricBucket, metric: HistogramY): number 
   if (metric === "count") return bucket.count;
   if (metric === "trendPct") return bucket.trendCount ? bucket.trendSum / bucket.trendCount : 0;
   return bucket[metric];
+}
+
+/** SENA niceMax: round a positive axis max up to 1, 2, 5, or 10 times a power of ten. */
+export function niceMax(value: number): number {
+  if (!value || value <= 0) return 1;
+  const exp = Math.floor(Math.log10(value));
+  const base = 10 ** exp;
+  const frac = value / base;
+  const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  return niceFrac * base;
+}
+
+/** Seven labels from the nice max down to zero. */
+export function axisTicks(max: number): number[] {
+  return Array.from({ length: 7 }, (_, index) => (max / 6) * (6 - index));
+}
+
+export function histogramAxisLabel(metric: HistogramY, value: number, market: Market): string {
+  if (metric === "omset30d" || metric === "omsetPerBulan" || metric === "totalOmset") return formatRibuShort(value, market);
+  if (metric === "trendPct") return `${Math.round(value)}%`;
+  return Math.round(value).toLocaleString("id-ID");
 }
 
 const SHOP_AGE_LABELS = ["<3 bln", "3–6 bln", "6 bln–1 thn", "1–2 thn", "2–5 thn", ">5 thn"];

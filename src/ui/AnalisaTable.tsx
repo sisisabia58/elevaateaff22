@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, searchOverview, shopAgeBucket, shopOverview, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
+import { axisTicks, bucketMeasure, histogramAxisLabel, itemBucketIndex, metricHistogram, metricsFor, niceMax, pageAnalytics, searchOverview, shopAgeBucket, shopOverview, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
 import { aiFilterLabel, type MarketAiScope } from "../shared/market-brief";
 import { analyticsCsv, downloadText } from "../shared/csv";
 import { formatAgeShort, formatBigMoney, formatMoney, formatRate, formatRibuShort, formatShortMoney } from "../shared/money";
@@ -169,7 +169,8 @@ export function AnalisaTable({
     return true;
   });
   const bars = metricHistogram(searched, now, 6, dimension, shopCtimes);
-  const maxBar = Math.max(1, ...bars.map((bar) => Math.abs(bucketMeasure(bar, barMetric))));
+  const scale = niceMax(Math.max(0, ...bars.map((bar) => bucketMeasure(bar, barMetric))));
+  const ticks = axisTicks(scale);
   const missingShops = new Set(items.filter((item) => (item.shopCtime ?? shopCtimes[item.shopId]) == null).map((item) => item.shopId)).size;
   const ranged =
     bucket === null || !bars.length
@@ -322,29 +323,39 @@ export function AnalisaTable({
           </div>
           {bars.length > 0 ? (
             <>
-              <div className="ea-bars">
-                {bars.map((bar, index) => {
-                  const measure = bucketMeasure(bar, barMetric);
-                  const axis = axisLabel(bar);
-                  const shown =
-                    barMetric === "trendPct"
-                      ? `${measure >= 0 ? "+" : ""}${measure.toFixed(0)}%`
-                      : barMetric === "omset30d" || barMetric === "omsetPerBulan" || barMetric === "totalOmset"
-                        ? formatMoney(measure, market)
-                        : Math.round(measure).toLocaleString("id-ID");
-                  return (
-                    <button
-                      key={`${dimension}-${index}`}
-                      type="button"
-                      className="ea-bar"
-                      title={`${axis} · ${shown}`}
-                      aria-pressed={bucket === index}
-                      onClick={() => setBucket((current) => (current === index ? null : index))}
-                    >
-                      <span style={{ height: `${Math.max(8, (Math.abs(measure) / maxBar) * 72)}px` }} />
-                    </button>
-                  );
-                })}
+              <div className="ea-chart-plot">
+                <div className="ea-gridlines" aria-hidden="true">
+                  {ticks.map((tick) => (
+                    <div key={tick} className="ea-gridline">
+                      <span>{histogramAxisLabel(barMetric, tick, market)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="ea-bars">
+                  {bars.map((bar, index) => {
+                    const measure = bucketMeasure(bar, barMetric);
+                    const axis = axisLabel(bar);
+                    const shown =
+                      barMetric === "trendPct"
+                        ? `${measure >= 0 ? "+" : ""}${measure.toFixed(0)}%`
+                        : barMetric === "omset30d" || barMetric === "omsetPerBulan" || barMetric === "totalOmset"
+                          ? formatMoney(measure, market)
+                          : Math.round(measure).toLocaleString("id-ID");
+                    const height = measure > 0 ? Math.max((measure / scale) * 100, 2) : 0;
+                    return (
+                      <button
+                        key={`${dimension}-${index}`}
+                        type="button"
+                        className="ea-bar"
+                        title={`${axis} · ${shown}`}
+                        aria-pressed={bucket === index}
+                        onClick={() => setBucket((current) => (current === index ? null : index))}
+                      >
+                        <span style={{ height: `${height}%` }} />
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="ea-bar-labels">
                 {bars.map((bar, index) => (

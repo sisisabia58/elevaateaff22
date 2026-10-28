@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, quantileEdges, rankingForPeriod, searchOverview, shopAgeBucket, shopOverview, shopRelation, tallyReviews } from "./analytics";
+import { axisTicks, bucketMeasure, histogramAxisLabel, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, niceMax, pageAnalytics, quantileEdges, rankingForPeriod, searchOverview, shopAgeBucket, shopOverview, shopRelation, tallyReviews } from "./analytics";
+import { marketFromHost } from "./money";
 import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
@@ -222,6 +223,23 @@ describe("product analytics", () => {
     expect(edges?.[3]).toBe(35);
     expect(edges?.[6]).toBe(60);
     expect(itemBucketIndex(spread[5], metricHistogram(spread, NOW), "price", NOW)).toBe(5);
+  });
+
+  it("rounds a histogram axis to a 1-2-5 max and seven ticks", () => {
+    expect(niceMax(0)).toBe(1);
+    expect(niceMax(-4)).toBe(1);
+    expect(niceMax(1)).toBe(1);
+    expect(niceMax(1.1)).toBe(2);
+    expect(niceMax(3)).toBe(5);
+    expect(niceMax(6)).toBe(10);
+    expect(niceMax(23)).toBe(50);
+    expect(niceMax(100)).toBe(100);
+    expect(niceMax(101)).toBe(200);
+    expect(axisTicks(6)).toEqual([6, 5, 4, 3, 2, 1, 0]);
+    const market = marketFromHost("shopee.co.id");
+    expect(histogramAxisLabel("count", 1200, market)).toBe((1200).toLocaleString("id-ID"));
+    expect(histogramAxisLabel("omset30d", 29_000, market)).toBe("29rb");
+    expect(histogramAxisLabel("trendPct", 12.4, market)).toBe("12%");
   });
 
   it("reads variant galleries from tier options, then from model rows", () => {
