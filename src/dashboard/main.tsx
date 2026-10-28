@@ -68,6 +68,8 @@ function DashboardApp() {
       hppBySku: books.hpp,
       claimed: books.claimed,
       operasional: books.operasional || 0,
+      iklan: books.iklan || 0,
+      iklanManual: books.iklanManual,
       period: activeRange ? null : period,
       range: activeRange,
       basis,
@@ -254,6 +256,9 @@ function DashboardApp() {
         }}
         onOperasional={(value) => {
           void persist({ ...books, operasional: value }, null);
+        }}
+        onIklan={(value, manual) => {
+          void persist({ ...books, iklan: value, iklanManual: manual }, null);
         }}
         imports={books.imports}
         onClaim={(orderNo, claimed) => {

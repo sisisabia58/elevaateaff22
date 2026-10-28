@@ -503,6 +503,9 @@ export const elevateCss = `
 .ea-mini { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 11px; margin-top: 3px; }
 .ea-mini i { display: block; height: 8px; border-radius: 4px; min-width: 2px; }
 .ea-mini b { font-variant-numeric: tabular-nums; }
+.ea-cost-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; }
+.ea-cost-fields .ea-field span { color: #6d655b; font-weight: 500; }
+#iklan-hpp-sync-badge { border: 0; background: transparent; color: #0f6e56; font-weight: 700; padding: 0 4px; cursor: pointer; }
 .ea-history-bar { display: flex; gap: 8px; margin: 0 0 10px; }
 .ea-history-bar button, #history-panel button { border: 1px solid #e4ddd2; background: #fff; color: #1c1915; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
 #history-panel { margin: 0 0 12px; padding: 12px; border: 1px solid #e4ddd2; border-radius: 12px; background: #fff; }

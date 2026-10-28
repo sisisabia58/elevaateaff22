@@ -121,6 +121,8 @@ export type ProfitSnapshot = {
   income: number;
   fees: number;
   adSpend: number;
+  iklan: number;
+  iklanManual: boolean;
   adGmv: number;
   roas: number;
   prorated: boolean;
@@ -407,6 +409,8 @@ export function snapshot(input: {
   hppBySku: Record<string, number>;
   claimed: string[];
   operasional?: number;
+  iklan?: number;
+  iklanManual?: boolean;
   period?: string | null;
   range?: ProfitWindow | null;
   basis?: DateBasis;
@@ -458,6 +462,8 @@ export function snapshot(input: {
   }
   const hpp = active.reduce((sum, row) => sum + (input.hppBySku[hppKey(row)] || 0) * (row.qty || 1), 0);
   const operasional = input.operasional || 0;
+  const iklanManual = Boolean(input.iklanManual);
+  const iklan = iklanManual ? Number(input.iklan) || 0 : adSpend > 0 ? Math.round(adSpend) : 0;
   const claimed = new Set(input.claimed);
   const shortfalls = finance
     .filter((row) => (row.pengiriman || 0) < 0 && row.orderNo)
@@ -476,12 +482,14 @@ export function snapshot(input: {
     income,
     fees,
     adSpend,
+    iklan,
+    iklanManual,
     adGmv: gmv,
     roas: adSpend > 0 ? gmv / adSpend : 0,
     prorated,
     hpp,
     operasional,
-    profit: income - hpp - adSpend - operasional,
+    profit: income - hpp - iklan - operasional,
     flow,
     shortfalls,
     charts: profitCharts(active, flow),

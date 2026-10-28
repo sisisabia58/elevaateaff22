@@ -367,6 +367,21 @@ describe("shopee exports", () => {
     expect(charts.fees.find((row) => row.label === "Lainnya")?.amount).toBe(300);
     expect(charts.fees.find((row) => row.label === "Biaya Admin")?.amount).toBe(5_000);
     const october = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10" });
+    expect(october.iklan).toBe(10_000);
+    expect(october.iklanManual).toBe(false);
+    const typed = snapshot({ orders: studioLedger().orders, finance: studioLedger().finance, ads: studioLedger().ads, hppBySku: { SKU1: 15_000 }, claimed: [], period: "2026-10", iklanManual: true, iklan: 5_000 });
+    expect(typed.adSpend).toBe(10_000);
+    expect(typed.iklan).toBe(5_000);
+    expect(typed.profit).toBe(october.profit + 5_000);
+    const rounded = snapshot({
+      orders: [],
+      finance: [],
+      ads: [{ name: "X", spend: 10_000.6, gmv: 20_000, orders: 1 }],
+      hppBySku: {},
+      claimed: [],
+    });
+    expect(rounded.adSpend).toBe(10_000.6);
+    expect(rounded.iklan).toBe(10_001);
     expect(october.charts.daily.map((day) => day.date)).toEqual(["2026-10-15"]);
     expect(october.charts.provinces[0]?.label).toBe("DKI Jakarta");
     const longName = "Tumbler Stainless Tutup Sedotan Warna Hitam Putih Merah Biru Hijau";

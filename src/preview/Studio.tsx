@@ -58,6 +58,8 @@ export function Studio() {
   const [shareUrl, setShareUrl] = useState("");
   const [roas, setRoas] = useState(EMPTY_ROAS);
   const [ops, setOps] = useState(0);
+  const [iklan, setIklan] = useState(0);
+  const [iklanManual, setIklanManual] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState<string | null>(null);
   const [profitRange, setProfitRange] = useState<ProfitWindow | null>(null);
   const [profitBasis, setProfitBasis] = useState<DateBasis>("created");
@@ -608,6 +610,8 @@ export function Studio() {
                 hppBySku: profitHpp,
                 claimed: profitClaimed,
                 operasional: ops,
+                iklan,
+                iklanManual,
                 period: profitRange?.from && profitRange?.to ? null : profitPeriod,
                 range: profitRange?.from && profitRange?.to ? profitRange : null,
                 basis: profitBasis,
@@ -617,6 +621,10 @@ export function Studio() {
               note="Dapur Kecil: Tumbler dibuat 15 Okt dan Sedotan September. Toko Laut: Wajan 12 Agu. Iklan Dapur Kecil hanya 1–28 Oktober."
               imports={previewImports}
               onOperasional={setOps}
+              onIklan={(value, manual) => {
+                setIklan(value);
+                setIklanManual(manual);
+              }}
               periods={listPeriods(ledger.orders, ledger.finance, profitBasis, profitStores)}
               period={profitPeriod}
               onPeriod={setProfitPeriod}
@@ -660,6 +668,9 @@ export function Studio() {
               onClearData={() => {
                 setImportLog([]);
                 setProfitHpp({});
+                setOps(0);
+                setIklan(0);
+                setIklanManual(false);
               }}
             />
           )}

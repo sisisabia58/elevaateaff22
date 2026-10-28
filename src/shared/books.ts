@@ -12,6 +12,8 @@ export type Books = {
   claimed: string[];
   hpp: Record<string, number>;
   operasional: number;
+  iklan: number;
+  iklanManual: boolean;
   roas: RoasInput;
   presets: Record<string, RoasPreset>;
   imports: ImportEntry[];
@@ -25,6 +27,8 @@ export const EMPTY_BOOKS: Books = {
   claimed: [],
   hpp: {},
   operasional: 0,
+  iklan: 0,
+  iklanManual: false,
   roas: EMPTY_ROAS,
   presets: {},
   imports: [],
@@ -76,7 +80,7 @@ export async function loadBooks(): Promise<Books> {
   const key = await ownerKey();
   try {
     const stored = await idbGet(key);
-    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [], importLog: stored.importLog || [] };
+    if (stored) return { ...EMPTY_BOOKS, ...stored, roas: { ...EMPTY_ROAS, ...stored.roas }, hpp: stored.hpp || {}, presets: stored.presets || {}, imports: stored.imports || [], importLog: stored.importLog || [], iklan: stored.iklan || 0, iklanManual: Boolean(stored.iklanManual) };
   } catch {
     /* IndexedDB unavailable */
   }
@@ -84,7 +88,7 @@ export async function loadBooks(): Promise<Books> {
     const raw = localStorage.getItem(localKey(key));
     if (!raw) return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
     const parsed = JSON.parse(raw) as Books;
-    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [], importLog: parsed.importLog || [] };
+    return { ...EMPTY_BOOKS, ...parsed, roas: { ...EMPTY_ROAS, ...parsed.roas }, presets: parsed.presets || {}, imports: parsed.imports || [], importLog: parsed.importLog || [], iklan: parsed.iklan || 0, iklanManual: Boolean(parsed.iklanManual) };
   } catch {
     return { ...EMPTY_BOOKS, hpp: {}, claimed: [] };
   }

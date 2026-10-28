@@ -33,6 +33,7 @@ export function ProfitBoard({
   note,
   onClaim,
   onOperasional,
+  onIklan,
   periods = [],
   period = null,
   onPeriod,
@@ -58,6 +59,7 @@ export function ProfitBoard({
   note?: string | null;
   onClaim?: (orderNo: string, claimed: boolean) => void;
   onOperasional?: (value: number) => void;
+  onIklan?: (value: number, manual: boolean) => void;
   periods?: string[];
   period?: string | null;
   onPeriod?: (period: string | null) => void;
@@ -290,21 +292,48 @@ export function ProfitBoard({
           )}
           {snapshot && (
             <p className="ea-note">
-              {formatMoney(snapshot.income, market)} − {formatMoney(snapshot.hpp, market)} (HPP) − {formatMoney(snapshot.adSpend, market)} (Iklan) − {formatMoney(snapshot.operasional, market)} (Ops) = {formatMoney(snapshot.profit, market)}
+              {formatMoney(snapshot.income, market)} − {formatMoney(snapshot.hpp, market)} (HPP) − {formatMoney(snapshot.iklan, market)} (Iklan) − {formatMoney(snapshot.operasional, market)} (Ops) = {formatMoney(snapshot.profit, market)}
             </p>
           )}
           {snapshot && <ProfitChartsView charts={snapshot.charts} />}
           {snapshot && <AdDetailView detail={snapshot.campaigns} />}
-          {snapshot && onOperasional && (
-            <label className="ea-field">
-              Operasional
-              <input
-                aria-label="Operasional"
-                type="number"
-                value={snapshot.operasional}
-                onChange={(event) => onOperasional(Number(event.target.value) || 0)}
-              />
-            </label>
+          {snapshot && (onOperasional || onIklan) && (
+            <div className="ea-cost-fields">
+              {onOperasional && (
+                <label className="ea-field">
+                  Biaya Operasional bulan ini (Rp) <span>listrik, gaji, sewa, dll</span>
+                  <input
+                    id="inp-ops"
+                    aria-label="Operasional"
+                    type="number"
+                    value={snapshot.operasional || ""}
+                    onChange={(event) => onOperasional(Number(event.target.value) || 0)}
+                  />
+                </label>
+              )}
+              {onIklan && (
+                <label className="ea-field">
+                  Biaya Iklan (Rp) <span>dari laporan iklan</span>
+                  {snapshot.iklanManual && (
+                    <button
+                      type="button"
+                      id="iklan-hpp-sync-badge"
+                      title="Klik buat ikutin lagi angka biaya iklan yang udah difilter periode"
+                      onClick={() => onIklan(Math.round(snapshot.adSpend), false)}
+                    >
+                      Ikuti filter periode
+                    </button>
+                  )}
+                  <input
+                    id="inp-iklan-hpp"
+                    aria-label="Biaya Iklan"
+                    type="number"
+                    value={snapshot.iklanManual || snapshot.adSpend > 0 ? snapshot.iklan : ""}
+                    onChange={(event) => onIklan(Number(event.target.value) || 0, true)}
+                  />
+                </label>
+              )}
+            </div>
           )}
           {snapshot && (snapshot.flow.harga !== 0 || marketplaceCost(snapshot) !== 0) && (
             <div className="ea-sheet">
