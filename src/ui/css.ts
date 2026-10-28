@@ -169,6 +169,11 @@ export const elevateCss = `
 .ea-part { margin-top: 8px; background: #fff; border: 1px solid #eee6da; border-radius: 12px; padding: 10px; }
 .ea-part-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
 .ea-part p { margin: 8px 0 0; font-size: 13px; white-space: pre-wrap; }
+.ea-histori { margin-top: 14px; }
+.ea-histori-card { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding: 10px; border: 1px solid #eee6da; border-radius: 12px; background: #fff; font-size: 12px; }
+.ea-histori-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ea-histori-card .up { color: #0f6e56; }
+.ea-histori-card .down { color: #9f1239; }
 .ea-rank { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-top: 8px; font-size: 13px; }
 .ea-rank i { grid-column: 1 / -1; display: block; height: 6px; background: #0f6e56; border-radius: 99px; }
 .ea-seller { width: 420px; top: 16px; bottom: auto; }

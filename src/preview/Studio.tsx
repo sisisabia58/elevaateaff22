@@ -21,6 +21,7 @@ import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { ProfitBoard } from "../ui/ProfitBoard";
 import { FunnelBoard } from "../ui/FunnelBoard";
+import { HistoriBoard } from "../ui/HistoriBoard";
 import { RoasCard } from "../ui/RoasCard";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { FEATURED, FIXTURES } from "./fixtures";
@@ -339,6 +340,7 @@ export function Studio() {
             <div className="page ad-demo">
               <h2>Iklan Shopee</h2>
               <p className="muted">Badge di tabel, kolom iklan, dan kartu metrik memakai preset produk. Biaya iklan aktual sudah termasuk PPN topup.</p>
+              <p className="ea-period">1/10 - 28/10 (GMT+7)</p>
               <div className="line-metrics" data-testid="line-metrics">
                 {[
                   ["Iklan Dilihat", "10.000"],
@@ -358,6 +360,7 @@ export function Studio() {
                   </div>
                 ))}
               </div>
+              <HistoriBoard productId="__account__" scopeSelector=".ad-demo" />
               <table>
                 <thead>
                   <tr>

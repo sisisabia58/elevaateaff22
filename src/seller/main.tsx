@@ -17,7 +17,9 @@ import { loadSettings } from "../shared/settings";
 import { SOURCE, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
 import { elevateCss } from "../ui/css";
+import { historiProductId } from "../shared/histori";
 import { FunnelBoard } from "../ui/FunnelBoard";
+import { HistoriBoard } from "../ui/HistoriBoard";
 import { RoasCard } from "../ui/RoasCard";
 
 type SellerKind = "ads" | "performance" | "order" | "broadcast" | "creators" | "other";
@@ -243,20 +245,23 @@ function SellerApp() {
             </div>
           )}
           {kind === "ads" && (
-            <RoasCard
-              value={books.roas}
-              onChange={updateRoas}
-              presets={books.presets}
-              onSavePreset={(name, preset) => updatePresets({ ...books.presets, [name]: preset })}
-              onDeletePreset={(name) => {
-                const next = { ...books.presets };
-                delete next[name];
-                updatePresets(next);
-              }}
-              spend={spend}
-              onSpend={setSpend}
-              tableNote={tableNote}
-            />
+            <>
+              <RoasCard
+                value={books.roas}
+                onChange={updateRoas}
+                presets={books.presets}
+                onSavePreset={(name, preset) => updatePresets({ ...books.presets, [name]: preset })}
+                onDeletePreset={(name) => {
+                  const next = { ...books.presets };
+                  delete next[name];
+                  updatePresets(next);
+                }}
+                spend={spend}
+                onSpend={setSpend}
+                tableNote={tableNote}
+              />
+              <HistoriBoard productId={historiProductId(href)} />
+            </>
           )}
           {kind === "performance" && (
             <>
