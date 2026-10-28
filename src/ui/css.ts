@@ -152,7 +152,28 @@ export const elevateCss = `
 .ea-panel-text { white-space: pre-wrap; background: #f7f3ec; border-radius: 12px; padding: 10px; max-height: 180px; overflow: auto; font-size: 13px; margin-top: 8px; }
 .ea-rank { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; margin-top: 8px; font-size: 13px; }
 .ea-rank i { grid-column: 1 / -1; display: block; height: 6px; background: #0f6e56; border-radius: 99px; }
-.ea-seller { width: 400px; top: 16px; bottom: auto; }
+.ea-seller { width: 420px; top: 16px; bottom: auto; }
+.ea-funnel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.ea-funnel-head span, .ea-funnel-card-head span, .ea-funnel-omzet span, .ea-funnel-repeat { color: #6d655b; font-size: 11px; }
+.ea-funnel-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.ea-funnel-tools input, .ea-funnel-tools select { border: 1px solid #e6dfd2; border-radius: 10px; background: #fff; padding: 6px 8px; min-width: 0; }
+.ea-funnel-tools input { flex: 1 1 140px; }
+.ea-funnel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ea-funnel-card { border: 1px solid #eee6da; border-radius: 12px; padding: 10px; background: #fff; }
+.ea-funnel-card-head { display: flex; gap: 8px; margin-bottom: 8px; }
+.ea-funnel-card-head b { display: block; font-size: 13px; line-height: 1.3; }
+.ea-funnel-thumb { width: 40px; height: 40px; border-radius: 8px; background: #f3efe7; overflow: hidden; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; color: #a39b90; font-size: 9px; }
+.ea-funnel-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.ea-funnel-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.ea-funnel-badges em, .ea-funnel-badges span { font-style: normal; border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+.ea-funnel-badges span { background: #f3efe7; color: #3f3a33; font-weight: 650; }
+.ea-funnel-card dl { margin: 0; border-top: 1px dashed #eee6da; padding-top: 6px; }
+.ea-funnel-card dl div { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; padding: 2px 0; }
+.ea-funnel-card dt { color: #6d655b; }
+.ea-funnel-card dd { margin: 0; font-weight: 700; }
+.ea-funnel-omzet { border-top: 1px dashed #eee6da; margin-top: 6px; padding-top: 6px; }
+.ea-funnel-omzet strong { display: block; color: #ee4d2d; font-size: 14px; }
+.ea-funnel-repeat { margin: 6px 0 0; }
 .ea-zones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 .ea-zone { border: 1px solid #e6dfd2; border-radius: 12px; padding: 8px; background: #fff; }
 .ea-zone.on { border-color: #0f6e56; background: #e5f4ee; }

@@ -4,7 +4,10 @@ import { commissionView } from "../shared/commission";
 import { downloadText, scoutCsv } from "../shared/csv";
 import { formatMoney, formatRate, estimateCommission, marketFromHost } from "../shared/money";
 import { stampAdTable } from "../shared/ad-badges";
+import { classifyPortfolio } from "../shared/funnel";
+import { stampPerfCards } from "../shared/perf-badges";
 import { EMPTY_ROAS } from "../shared/roas";
+import type { PerfProduct } from "../shared/research";
 import { priceHistogram, shopSummary } from "../shared/research";
 import { downloadDataUrl, drawShareCard } from "../shared/share";
 import { DEFAULT_SETTINGS, type CommissionView, type LiveCommission, type Settings } from "../shared/types";
@@ -14,11 +17,12 @@ import { PopupView } from "../ui/PopupView";
 import { PageActions } from "../ui/PageActions";
 import { ProductCard } from "../ui/ProductCard";
 import { ProfitBoard } from "../ui/ProfitBoard";
+import { FunnelBoard } from "../ui/FunnelBoard";
 import { RoasCard } from "../ui/RoasCard";
 import { ScoutPanel, type ScoutSort } from "../ui/ScoutPanel";
 import { FEATURED, FIXTURES } from "./fixtures";
 
-type Scene = "search" | "product" | "popup" | "settings" | "iklan" | "profit";
+type Scene = "search" | "product" | "popup" | "settings" | "iklan" | "performa" | "profit";
 
 const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "search", label: "Pencarian" },
@@ -26,6 +30,7 @@ const SCENES: Array<{ id: Scene; label: string }> = [
   { id: "popup", label: "Popup" },
   { id: "settings", label: "Pengaturan" },
   { id: "iklan", label: "Iklan" },
+  { id: "performa", label: "Performa" },
   { id: "profit", label: "Laba" },
 ];
 
@@ -55,6 +60,12 @@ export function Studio() {
     const root = document.querySelector(".ad-demo");
     if (root) stampAdTable(root, roas);
   }, [scene, roas]);
+
+  useEffect(() => {
+    if (scene !== "performa") return;
+    const root = document.querySelector(".perf-demo");
+    if (root) stampPerfCards(root, previewFunnel());
+  }, [scene]);
   const items = empty ? [] : FIXTURES;
 
   const commissions = useMemo(() => {
@@ -136,9 +147,11 @@ export function Studio() {
                     ? "popup extension"
                     : scene === "iklan"
                       ? "seller.shopee.co.id/portal/marketing/pas"
-                      : scene === "profit"
-                        ? "dashboard laba"
-                        : "shopee.co.id/dapurkecil"}
+                      : scene === "performa"
+                        ? "seller.shopee.co.id/datacenter/product/performance"
+                        : scene === "profit"
+                          ? "dashboard laba"
+                          : "shopee.co.id/dapurkecil"}
               </div>
             </div>
           )}
@@ -304,6 +317,21 @@ export function Studio() {
               <RoasCard value={roas} onChange={setRoas} spend="20000" onSpend={() => undefined} tableNote={null} />
             </div>
           )}
+          {scene === "performa" && (
+            <div className="page">
+              <h2>Performa produk</h2>
+              <p className="muted">Kelas BCG dari median pengunjung dan konversi. Diagnosis menandai tahap funnel pertama yang di bawah median.</p>
+              <div className="perf-demo">
+                {PREVIEW_PERF.map((row) => (
+                  <div key={row.id} className="product-item__info">
+                    <b>{row.name}</b>
+                    <span>ID Produk: {row.id}</span>
+                  </div>
+                ))}
+              </div>
+              <FunnelBoard rows={previewFunnel()} note="6 produk dari contoh laporan 30 hari." />
+            </div>
+          )}
           {scene === "profit" && (
             <ProfitBoard snapshot={null} hppCount={0} note="Dashboard kosong. Muat contoh ada di tab extension." />
           )}
@@ -317,6 +345,7 @@ export function Studio() {
             <li>Analisa menempel di pencarian: penjualan 30 hari, trend, sebaran harga, umur listing, dan umur toko.</li>
             <li>Kartu produk menggambar gambar 4:5.</li>
             <li>Iklan menunjukkan zona ROAS. Laba mulai dari keadaan kosong.</li>
+            <li>Performa mengelompokkan Star, Cashcow, Question Mark, dan Dog, lalu menandai bottleneck.</li>
           </ul>
           <div className="studio-tools">
             <button type="button" onClick={() => { setEmpty(false); setScoutOpen(true); setScene("search"); }}>
@@ -337,6 +366,19 @@ export function Studio() {
       </main>
     </>
   );
+}
+
+const PREVIEW_PERF: PerfProduct[] = [
+  { id: "1001", name: "Tumbler Stainless", sold: 180, growthPct: 40, omzet: 16_020_000, orders: 160, salesPerOrder: 100_125, impressions: 12000, visitors: 900, ctrPct: 7.5, convPct: 3.1, addToCartPct: 8, cartToCheckoutPct: 42, repeatPct: 11 },
+  { id: "1002", name: "Set Sedotan", sold: 900, growthPct: 5, omzet: 26_100_000, orders: 840, salesPerOrder: 31_071, impressions: 40000, visitors: 3200, ctrPct: 8, convPct: 4.4, addToCartPct: 11, cartToCheckoutPct: 48, repeatPct: 6 },
+  { id: "1003", name: "Talenan Kayu", sold: 8, growthPct: 60, omzet: 1_232_000, orders: 8, salesPerOrder: 154_000, impressions: 2000, visitors: 140, ctrPct: 2.1, convPct: 0.8, addToCartPct: 3, cartToCheckoutPct: 20 },
+  { id: "1004", name: "Cangkir Keramik", sold: 12, growthPct: -15, omzet: 576_000, orders: 12, salesPerOrder: 48_000, impressions: 1500, visitors: 90, ctrPct: 1.4, convPct: 0.5, addToCartPct: 2, cartToCheckoutPct: 18 },
+  { id: "1005", name: "Lampu Meja", sold: 40, growthPct: 10, omzet: 3_200_000, orders: 36, salesPerOrder: 88_888, impressions: 900, visitors: 80, ctrPct: 9, convPct: 6, addToCartPct: 12, cartToCheckoutPct: 55, repeatPct: 4 },
+  { id: "1006", name: "Rak Dinding", sold: 20, growthPct: 2, omzet: 1_800_000, orders: 18, salesPerOrder: 100_000, impressions: 18000, visitors: 2000, ctrPct: 1.2, convPct: 0.4, addToCartPct: 1.5, cartToCheckoutPct: 12 },
+];
+
+function previewFunnel() {
+  return classifyPortfolio(PREVIEW_PERF).rows;
 }
 
 function wait(ms: number) {

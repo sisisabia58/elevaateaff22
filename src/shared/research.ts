@@ -71,7 +71,33 @@ export function parseCreators(raw: unknown): CreatorRow[] {
   return rows;
 }
 
-export type PerfProduct = { name: string; sold: number; growthPct: number };
+export type PerfProduct = {
+  id?: string | null;
+  name: string;
+  image?: string | null;
+  sold: number;
+  growthPct: number;
+  omzet?: number | null;
+  orders?: number | null;
+  impressions?: number | null;
+  visitors?: number | null;
+  ctrPct?: number | null;
+  convPct?: number | null;
+  addToCartPct?: number | null;
+  cartToCheckoutPct?: number | null;
+  salesPerOrder?: number | null;
+  repeatPct?: number | null;
+};
+
+function finite(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function ratePct(value: unknown): number | null {
+  const number = finite(value);
+  if (number === null) return null;
+  return Math.abs(number) <= 1 ? number * 100 : number;
+}
 
 export function parsePerformance(raw: unknown): PerfProduct[] {
   const found: PerfProduct[] = [];
@@ -83,21 +109,63 @@ export function parsePerformance(raw: unknown): PerfProduct[] {
     }
     const row = value as Record<string, unknown>;
     const name = row.product_name ?? row.item_name ?? row.name;
-    const sold = row.placed_units ?? row.confirmed_units ?? row.units ?? row.sales ?? row.sold;
-    const growth = row.placed_units_pct_diff ?? row.sales_pct_diff ?? row.growth ?? row.grow_rate;
-    if (typeof name === "string" && (typeof sold === "number" || typeof growth === "number")) {
+    const sold = finite(row.placed_units) ?? finite(row.confirmed_units) ?? finite(row.units) ?? finite(row.sales) ?? finite(row.sold);
+    const growth = finite(row.placed_units_pct_diff) ?? finite(row.sales_pct_diff) ?? finite(row.growth) ?? finite(row.grow_rate);
+    const confirmedSales = finite(row.confirmed_sales);
+    const placedSales = finite(row.placed_sales);
+    const omzet = confirmedSales ?? placedSales;
+    const confirmedUnits = finite(row.confirmed_units);
+    const placedUnits = finite(row.placed_units);
+    const impressions = finite(row.product_card_impressions);
+    const visitors = finite(row.uv);
+    const ctrPct = ratePct(row.ctr);
+    const convPct = ratePct(row.placed_order_conversion_rate);
+    const addToCartPct = ratePct(row.uv_to_add_to_cart_rate);
+    const addToCartBuyers = finite(row.add_to_cart_buyers);
+    const placedBuyers = finite(row.placed_buyers);
+    const cartToCheckoutPct = addToCartBuyers && addToCartBuyers > 0 && placedBuyers !== null ? (placedBuyers / addToCartBuyers) * 100 : null;
+    const confirmedPerOrder = finite(row.confirmed_sales_per_order);
+    const placedPerOrder = finite(row.placed_sales_per_order);
+    const avgUnits = confirmedUnits && confirmedUnits > 0 ? confirmedUnits : placedUnits && placedUnits > 0 ? placedUnits : null;
+    const salesPerOrder =
+      confirmedPerOrder && confirmedPerOrder > 0
+        ? confirmedPerOrder
+        : placedPerOrder && placedPerOrder > 0
+          ? placedPerOrder
+          : omzet !== null && avgUnits
+            ? omzet / avgUnits
+            : null;
+    const orders = finite(row.confirmed_orders) ?? finite(row.placed_orders);
+    const idRaw = row.id ?? row.item_id ?? row.product_id;
+    const image = typeof row.image === "string" ? row.image : null;
+    if (typeof name === "string" && (sold !== null || growth !== null || omzet !== null || impressions !== null || visitors !== null)) {
       found.push({
+        id: idRaw == null ? null : String(idRaw),
         name,
-        sold: typeof sold === "number" ? sold : 0,
-        growthPct: typeof growth === "number" ? growth : 0,
+        image,
+        sold: sold ?? 0,
+        growthPct: growth ?? 0,
+        omzet,
+        orders,
+        impressions,
+        visitors,
+        ctrPct,
+        convPct,
+        addToCartPct,
+        cartToCheckoutPct,
+        salesPerOrder: salesPerOrder ?? (omzet !== null && avgUnits ? omzet / avgUnits : null),
+        repeatPct: ratePct(row.repeat_confirmed_order_rate),
       });
     }
     for (const child of Object.values(row)) visit(child, depth + 1);
   };
   visit(raw, 0);
   const unique = new Map<string, PerfProduct>();
-  for (const row of found) if (!unique.has(row.name)) unique.set(row.name, row);
-  return [...unique.values()].slice(0, 80);
+  for (const row of found) {
+    const key = row.id || row.name;
+    if (!unique.has(key)) unique.set(key, row);
+  }
+  return [...unique.values()].slice(0, 2000);
 }
 
 export type IncomeParts = { price: number; income: number; fees: number; sku: string };

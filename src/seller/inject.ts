@@ -2,6 +2,8 @@ import { parseCreators, parseIncome, parsePerformance } from "../shared/research
 import { SOURCE } from "../shared/types";
 
 const channel = "seller";
+let bulkPerf = false;
+let stopPerf = false;
 
 function post(payload: Record<string, unknown>) {
   window.postMessage({ source: SOURCE, channel, ...payload }, location.origin);
@@ -20,7 +22,7 @@ function handle(url: string, json: unknown) {
   if (raw.includes("/api/v3/affiliateplatform/creator/list") || raw.includes("/api/v3/affiliateplatform/creator/detail")) {
     post({ type: "CREATORS", rows: parseCreators(json) });
   }
-  if (raw.includes("/api/mydata/") && raw.includes("performance")) {
+  if (!bulkPerf && raw.includes("/api/mydata/") && raw.includes("performance")) {
     const rows = parsePerformance(json);
     post({ type: "PERFORMANCE", rows, missing: rows.length === 0 });
   }
@@ -39,6 +41,65 @@ function handle(url: string, json: unknown) {
     }
   }
 }
+
+async function fetchPerformanceCatalog() {
+  stopPerf = false;
+  bulkPerf = true;
+  const items: unknown[] = [];
+  let total: number | null = null;
+  try {
+    const nowSec = Math.floor(Date.now() / 1000);
+    for (let pageNum = 1; pageNum <= 200; pageNum += 1) {
+      if (stopPerf) break;
+      const params = new URLSearchParams({
+        start_time: String(nowSec - 2_592_000),
+        end_time: String(nowSec),
+        period: "past30days",
+        keyword: "",
+        category_type: "shopee",
+        category_id: "-1",
+        page_size: "10",
+        page_num: String(pageNum),
+        order_type: "confirmed",
+        order_by: "confirmed_sales.desc",
+      });
+      const pageParams = new URLSearchParams(location.search);
+      const cds = pageParams.get("SPC_CDS");
+      const cdsVer = pageParams.get("SPC_CDS_VER");
+      if (cds) params.set("SPC_CDS", cds);
+      if (cdsVer) params.set("SPC_CDS_VER", cdsVer);
+      const response = await fetch(`https://seller.shopee.co.id/api/mydata/v4/product/performance/?${params}`, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json, text/plain, */*" },
+      });
+      if (!response.ok) throw new Error(`Shopee menolak performa (${response.status}).`);
+      const json = (await response.json()) as { code?: number; msg?: string; result?: { total?: number; items?: unknown[] } };
+      if (json.code) throw new Error(json.msg || `API performa ${json.code}`);
+      if (total === null) total = json.result?.total || 0;
+      const pageItems = json.result?.items || [];
+      items.push(...pageItems);
+      post({ type: "PERFORMANCE_PROGRESS", loaded: items.length, total: total || items.length });
+      if (!pageItems.length || items.length >= (total || 0)) break;
+      await new Promise((resolve) => window.setTimeout(resolve, 500));
+    }
+    const rows = parsePerformance({ items });
+    post({ type: "PERFORMANCE", rows, done: true, missing: rows.length === 0 });
+  } catch (error) {
+    post({ type: "PERFORMANCE_ERROR", error: error instanceof Error ? error.message : "Performa tidak terbaca." });
+  } finally {
+    bulkPerf = false;
+    stopPerf = false;
+  }
+}
+
+window.addEventListener("message", (event) => {
+  if (event.source !== window) return;
+  const data = event.data as { source?: string; channel?: string; type?: string };
+  if (!data || data.source !== SOURCE || data.channel !== "seller-request") return;
+  if (data.type === "FETCH_PERFORMANCE") void fetchPerformanceCatalog();
+  if (data.type === "STOP_PERFORMANCE") stopPerf = true;
+});
 
 const originalFetch = window.fetch.bind(window);
 window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {

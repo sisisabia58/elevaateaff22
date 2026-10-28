@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { priceHistogram, shopSummary } from "./research";
+import { parsePerformance, priceHistogram, shopSummary } from "./research";
 import { detectExportKind, parseCsv, parseHppCsv, parseTable, snapshot } from "./reports";
 import { adRoasLabel, classifyTier, computeProfitBersih, hitungMultiTierROAS, hitungTargetROAS, median, parseShopeeNumber, profitBadgeText, realProfit, zoneFor } from "./roas";
 import type { ScoutItem } from "./types";
@@ -54,6 +54,45 @@ describe("roas", () => {
     expect(profitBadgeText(result.profitBersih)).toBe("Profit Rp434.500");
     expect(adRoasLabel(16, { hargaJual: 100_000, hpp: 40_000 })).toBe("Bagus");
     expect(adRoasLabel(1.5, { hargaJual: 100_000, hpp: 40_000 })).toBe("Rugi");
+  });
+
+  it("reads funnel rates as percents from a performance payload", () => {
+    const rows = parsePerformance({
+      items: [
+        {
+          product_name: "Tumbler",
+          placed_units: 10,
+          placed_units_pct_diff: 12,
+          confirmed_sales: 890_000,
+          product_card_impressions: 1000,
+          uv: 80,
+          ctr: 0.05,
+          placed_order_conversion_rate: 0.02,
+          uv_to_add_to_cart_rate: 0.08,
+          add_to_cart_buyers: 20,
+          placed_buyers: 10,
+          confirmed_orders: 8,
+          repeat_confirmed_order_rate: 0.1,
+          id: 1001,
+        },
+      ],
+    });
+    expect(rows[0]).toMatchObject({
+      id: "1001",
+      name: "Tumbler",
+      sold: 10,
+      growthPct: 12,
+      omzet: 890_000,
+      orders: 8,
+      impressions: 1000,
+      visitors: 80,
+      ctrPct: 5,
+      convPct: 2,
+      addToCartPct: 8,
+      cartToCheckoutPct: 50,
+      repeatPct: 10,
+      salesPerOrder: 89_000,
+    });
   });
 });
 

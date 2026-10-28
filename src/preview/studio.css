@@ -53,6 +53,9 @@ button, input { font: inherit; }
   padding: 6px 12px;
 }
 .ad-demo table { width: 100%; border-collapse: collapse; background: #fff; margin: 12px 0 16px; font-size: 13px; }
+.perf-demo { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 12px 0 16px; }
+.perf-demo .product-item__info { border: 1px solid #eee6da; border-radius: 12px; padding: 10px; background: #fff; display: flex; flex-direction: column; gap: 2px; }
+.perf-demo .product-item__info span { color: #6d655b; font-size: 12px; }
 .ad-demo th, .ad-demo td { border-bottom: 1px solid #eee6da; text-align: left; padding: 8px; vertical-align: top; }
 .page { padding: 22px; }
 .page h2 { margin: 0 0 6px; font-size: 28px; letter-spacing: -0.03em; }

@@ -2,17 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { loadSession } from "../shared/auth";
 import { loadBooks, saveBooks, type Books } from "../shared/books";
-import { downloadText } from "../shared/csv";
 import { formatMoney, marketFromHost } from "../shared/money";
+import { classifyPortfolio, funnelBrief, mergeServerClass } from "../shared/funnel";
 import { broadcastDraft, type CreatorRow, type IncomeParts, type PerfProduct } from "../shared/research";
 import { stampAdTable } from "../shared/ad-badges";
-import { classifyTier, median, realProfit, type RoasInput } from "../shared/roas";
+import { stampPerfCards } from "../shared/perf-badges";
+import { realProfit, type RoasInput } from "../shared/roas";
 import { hppFor } from "../shared/reports";
-import { callAiProxy, countSavedContacts, pingFeature, reportShopeeAccount, saveContacts } from "../shared/server";
+import { callAiProxy, callFeatureProxy, countSavedContacts, pingFeature, reportShopeeAccount, saveContacts } from "../shared/server";
 import { loadSettings } from "../shared/settings";
 import { SOURCE, type Settings } from "../shared/types";
 import { copyText } from "../ui/copy";
 import { elevateCss } from "../ui/css";
+import { FunnelBoard } from "../ui/FunnelBoard";
 import { RoasCard } from "../ui/RoasCard";
 
 type SellerKind = "ads" | "performance" | "order" | "broadcast" | "creators" | "other";
@@ -27,8 +29,6 @@ function sellerKind(href: string): SellerKind {
   return "other";
 }
 
-const TIER_LABEL = { star: "Star", cashcow: "Cashcow", question: "Question Mark", dog: "Dog" };
-
 function SellerApp() {
   const [href, setHref] = useState(location.href);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -37,7 +37,9 @@ function SellerApp() {
   const [spend, setSpend] = useState("");
   const [tableNote, setTableNote] = useState<string | null>(null);
   const [rows, setRows] = useState<PerfProduct[]>([]);
-  const [perfNote, setPerfNote] = useState("Data performa belum masuk. Buka ulang halaman performa produk.");
+  const [serverClass, setServerClass] = useState<unknown>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfNote, setPerfNote] = useState("Klik Analisa Funnel Produk untuk memuat 30 hari terakhir.");
   const [income, setIncome] = useState<IncomeParts | null>(null);
   const [incomeNote, setIncomeNote] = useState<string | null>("Komponen pendapatan belum masuk. Isi manual atau buka ulang pesanan.");
   const [manual, setManual] = useState({ price: "", fees: "", sku: "" });
@@ -67,6 +69,10 @@ function SellerApp() {
         income?: IncomeParts | null;
         missing?: boolean;
         rows?: PerfProduct[] | CreatorRow[];
+        done?: boolean;
+        loaded?: number;
+        total?: number;
+        error?: string;
         shopeeUserId?: string;
         username?: string | null;
         shopId?: string | null;
@@ -78,10 +84,47 @@ function SellerApp() {
           setIncomeNote(null);
         } else setIncomeNote("Komponen pendapatan tidak terbaca dari halaman ini.");
       }
+      if (data.type === "PERFORMANCE_PROGRESS") {
+        setPerfLoading(true);
+        setPerfNote(`Memuat ${data.loaded ?? 0}/${data.total ?? 0} produk…`);
+      }
+      if (data.type === "PERFORMANCE_ERROR") {
+        setPerfLoading(false);
+        setPerfNote(data.error || "Performa tidak terbaca.");
+      }
       if (data.type === "PERFORMANCE") {
         const list = (data.rows as PerfProduct[]) || [];
         setRows(list);
-        setPerfNote(list.length ? `${list.length} produk terbaca.` : "Angka performa tidak terbaca dari halaman ini.");
+        setServerClass(null);
+        setPerfNote(list.length ? `${list.length} produk terbaca. Kelas memakai median pengunjung dan konversi.` : "Angka performa tidak terbaca dari halaman ini.");
+        if (data.done) {
+          setPerfLoading(false);
+          void callFeatureProxy("funnel_analysis", {
+            items: list
+              .filter((row) => row.id)
+              .map((row) => ({
+                id: row.id,
+                impressions: row.impressions ?? null,
+                uv: row.visitors ?? null,
+                ctrPct: row.ctrPct ?? null,
+                convPct: row.convPct ?? null,
+                addToCartRatePct: row.addToCartPct ?? null,
+                cartToCheckoutRatePct: row.cartToCheckoutPct ?? null,
+              })),
+          }).then((result) => {
+            if (!result.ok) {
+              setPerfNote(`${list.length} produk. Kelas lokal dari median pengunjung dan konversi. ${result.error}`);
+              return;
+            }
+            const body = result.data !== null && typeof result.data === "object" ? (result.data as { results?: unknown[] }) : null;
+            if (body && Array.isArray(body.results) && body.results.length) {
+              setServerClass(result.data);
+              setPerfNote(`${list.length} produk. Kelas mengikuti server.`);
+              return;
+            }
+            setPerfNote(`${list.length} produk. Kelas lokal dari median pengunjung dan konversi.`);
+          });
+        }
       }
       if (data.type === "CREATORS") setCreators((data.rows as CreatorRow[]) || []);
       if (data.type === "ACCOUNT" && data.shopeeUserId) {
@@ -100,6 +143,19 @@ function SellerApp() {
     };
   }, [href]);
 
+  const tiers = useMemo(() => {
+    const local = classifyPortfolio(rows).rows;
+    return serverClass ? mergeServerClass(local, serverClass) : local;
+  }, [rows, serverClass]);
+
+  useEffect(() => {
+    if (kind !== "performance") return;
+    const look = () => stampPerfCards(document, tiers);
+    look();
+    const timer = window.setInterval(look, 2000);
+    return () => window.clearInterval(timer);
+  }, [kind, href, tiers]);
+
   useEffect(() => {
     if (kind !== "ads" || !books) return;
     const ready = books.roas.hargaJual > 0 && books.roas.hpp > 0 ? books.roas : null;
@@ -111,13 +167,6 @@ function SellerApp() {
     const timer = window.setInterval(look, 2000);
     return () => window.clearInterval(timer);
   }, [kind, href, books]);
-
-  const tiers = useMemo(() => {
-    if (!rows.length) return [];
-    const soldMid = median(rows.map((row) => row.sold));
-    const growthMid = median(rows.map((row) => row.growthPct));
-    return rows.map((row) => ({ ...row, tier: classifyTier(row.sold, row.growthPct, soldMid, growthMid) }));
-  }, [rows]);
 
   function updateRoas(next: RoasInput) {
     if (!books) return;
@@ -170,37 +219,37 @@ function SellerApp() {
           )}
           {kind === "performance" && (
             <>
-              <p className="ea-note">{perfNote}</p>
-              {tiers.slice(0, 8).map((row) => (
-                <div key={row.name} className="ea-item">
-                  <b>{row.name}</b>
-                  <em>{TIER_LABEL[row.tier]}</em>
-                  <span>{row.sold} terjual</span>
-                  <span>{row.growthPct}% tumbuh</span>
-                </div>
-              ))}
               <div className="ea-actions">
                 <button
-                  className="ea-btn"
+                  className="ea-btn primary"
                   type="button"
+                  disabled={perfLoading}
                   onClick={() => {
-                    const header = "nama,terjual,tumbuh_persen,kelas";
-                    const body = tiers.map((row) => [row.name, row.sold, row.growthPct, TIER_LABEL[row.tier]].join(","));
-                    downloadText("elevate-funnel.csv", [header, ...body].join("\n"));
+                    setPerfLoading(true);
+                    setPerfNote("Memuat…");
+                    window.postMessage({ source: SOURCE, channel: "seller-request", type: "FETCH_PERFORMANCE" }, location.origin);
                   }}
                 >
-                  CSV funnel
+                  {perfLoading ? "Memuat…" : rows.length ? "Refresh Analisa Funnel" : "Analisa Funnel Produk"}
                 </button>
+                {perfLoading && (
+                  <button
+                    className="ea-btn"
+                    type="button"
+                    onClick={() => window.postMessage({ source: SOURCE, channel: "seller-request", type: "STOP_PERFORMANCE" }, location.origin)}
+                  >
+                    Stop
+                  </button>
+                )}
                 <button
                   className="ea-btn"
                   type="button"
-                  onClick={() =>
-                    void gemini("funnel_analysis", { rows: tiers.slice(0, 20) }, "Catatan funnel belum tersedia.")
-                  }
+                  onClick={() => void gemini("funnel_analysis", { brief: funnelBrief(tiers), rows: tiers.slice(0, 40) }, "Catatan funnel belum tersedia.")}
                 >
-                  Catatan funnel
+                  Analisa AI
                 </button>
               </div>
+              <FunnelBoard rows={tiers} note={perfNote} />
             </>
           )}
           {kind === "order" && (
