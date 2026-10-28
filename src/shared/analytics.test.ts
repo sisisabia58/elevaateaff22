@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
+import { bucketMeasure, itemBucketIndex, itemMetrics, metricHistogram, metricsFor, pageAnalytics, rankingForPeriod, shopAgeBucket, shopRelation, tallyReviews } from "./analytics";
 import { parseScoutEntry, productDetailEntry } from "./shopee";
 import type { ScoutItem } from "./types";
 
@@ -185,6 +185,10 @@ describe("product analytics", () => {
     const shopAge = metricHistogram(rows, NOW, 5, "shopAge", shops);
     expect(shopAge.map((bar) => bar.label)).toEqual(["<3 bln", "2–5 thn"]);
     expect(itemBucketIndex(rows[1], shopAge, "shopAge", NOW, shops)).toBe(1);
+    const priced = metricHistogram([product({ itemId: "om", price: 10_000, sold: 4, monthlySold: 2, wishlist: 7 })], NOW);
+    expect(bucketMeasure(priced[0], "wishlist")).toBe(7);
+    expect(bucketMeasure(priced[0], "totalSold")).toBe(4);
+    expect(bucketMeasure(priced[0], "omset30d")).toBe(20_000);
   });
 
   it("reads variant galleries from tier options, then from model rows", () => {

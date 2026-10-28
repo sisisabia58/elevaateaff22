@@ -11,15 +11,18 @@ export function ProductMetrics({ item, market }: { item: ScoutItem; market: Mark
   const metrics = itemMetrics(item);
   const shopAge = shopAgeBucket(item.shopCtime);
   const cells: Array<[string, string]> = [
+    ["Per bulan", num(metrics.soldPerMonth)],
+    ["Omset/bulan", metrics.omsetPerBulan == null ? "—" : formatMoney(metrics.omsetPerBulan, market)],
     ["30 hari", num(metrics.sold30d)],
     ["Omset 30", metrics.omset30d == null ? "—" : formatMoney(metrics.omset30d, market)],
     ["Trend", metrics.trendPct == null ? "—" : `${metrics.trendPct >= 0 ? "+" : ""}${metrics.trendPct.toFixed(0)}%`],
-    ["Per bulan", num(metrics.soldPerMonth)],
     ["Terjual", num(item.sold)],
-    ["Usia", metrics.ageDays == null ? "—" : `${Math.round(metrics.ageDays)} hr`],
-    ["Ulasan", num(item.ratingCount)],
+    ["Total omset", metrics.totalOmset == null ? "—" : formatMoney(metrics.totalOmset, market)],
     ["Wishlist", num(item.wishlist)],
+    ["Ulasan", num(item.ratingCount)],
+    ["Usia", metrics.ageDays == null ? "—" : `${Math.round(metrics.ageDays)} hr`],
   ];
+  if (item.stock != null) cells.push(["Stok", num(item.stock)]);
   if (metrics.stockValue != null) cells.push(["Nilai stok", formatMoney(metrics.stockValue, market)]);
   if (shopAge) cells.push(["Umur toko", shopAge]);
   return (

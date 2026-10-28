@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import type { Caption } from "../shared/captions";
+import { localThread, THREAD_ANGLES, type Caption, type ThreadAngle } from "../shared/captions";
 import { formatMoney, formatRate } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
 import { elevateCss } from "./css";
@@ -39,13 +39,14 @@ export function ProductCard({
   onShare?: () => void;
   onZip?: () => void;
   onSummarize?: () => void;
-  onThread?: () => void;
+  onThread?: (angle: ThreadAngle) => void;
   onRank?: () => void;
   panel?: { title: string; body: string } | null;
   ranking?: ReactNode;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [angle, setAngle] = useState<ThreadAngle>("problem_solution");
   const primary = captions[0];
 
   function flash(message: string) {
@@ -140,8 +141,8 @@ export function ProductCard({
                     </button>
                   )}
                   {onThread && (
-                    <button className="ea-btn" type="button" onClick={onThread}>
-                      5 angle
+                    <button className="ea-btn" type="button" onClick={() => onThread(angle)}>
+                      Generate angle
                     </button>
                   )}
                   {onRank && (
@@ -161,6 +162,27 @@ export function ProductCard({
               )}
               {ranking}
               <div className="ea-caption">
+                <div className="ea-kicker" style={{ marginTop: 10 }}>
+                  Thread Affiliate
+                </div>
+                <select aria-label="Angle thread" value={angle} onChange={(event) => setAngle(event.target.value as ThreadAngle)}>
+                  {THREAD_ANGLES.map((entry) => (
+                    <option key={entry.key} value={entry.key}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+                <p>{localThread(item, market, angle)}</p>
+                <button
+                  className="ea-btn"
+                  type="button"
+                  onClick={() => {
+                    void onCopyCaption(localThread(item, market, angle));
+                    flash("Thread disalin");
+                  }}
+                >
+                  Salin thread
+                </button>
                 <button className="ea-btn" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
                   {open ? "Tutup 3 angle" : "Lihat 3 angle caption"}
                 </button>

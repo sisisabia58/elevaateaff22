@@ -90,30 +90,109 @@ export function pageAnalytics(items: ScoutItem[], nowMs = Date.now()): PageAnaly
   };
 }
 
-export type MetricBucket = { label: string; min: number; max: number; count: number; sold30d: number };
+export type HistogramY =
+  | "count"
+  | "sold30d"
+  | "omset30d"
+  | "omsetPerBulan"
+  | "totalSold"
+  | "totalOmset"
+  | "wishlist"
+  | "trendPct";
+
+export type MetricBucket = {
+  label: string;
+  min: number;
+  max: number;
+  count: number;
+  sold30d: number;
+  omset30d: number;
+  omsetPerBulan: number;
+  totalSold: number;
+  totalOmset: number;
+  wishlist: number;
+  trendSum: number;
+  trendCount: number;
+};
 
 export type HistogramDimension = "price" | "age" | "shopAge";
 
+function blankBucket(min: number, max: number): MetricBucket {
+  return {
+    label: "",
+    min,
+    max,
+    count: 0,
+    sold30d: 0,
+    omset30d: 0,
+    omsetPerBulan: 0,
+    totalSold: 0,
+    totalOmset: 0,
+    wishlist: 0,
+    trendSum: 0,
+    trendCount: 0,
+  };
+}
+
+type HistogramRow = {
+  value: number;
+  sold30d: number;
+  omset30d: number;
+  omsetPerBulan: number;
+  totalSold: number;
+  totalOmset: number;
+  wishlist: number;
+  trendPct: number | null;
+};
+
+function histogramRow(item: ScoutItem, metrics: ItemMetrics, value: number): HistogramRow {
+  return {
+    value,
+    sold30d: metrics.sold30d ?? 0,
+    omset30d: metrics.omset30d ?? 0,
+    omsetPerBulan: metrics.omsetPerBulan ?? 0,
+    totalSold: item.sold ?? 0,
+    totalOmset: metrics.totalOmset ?? 0,
+    wishlist: item.wishlist ?? 0,
+    trendPct: metrics.trendPct,
+  };
+}
+
+function absorb(bucket: MetricBucket, row: Omit<HistogramRow, "value">) {
+  bucket.count += 1;
+  bucket.sold30d += row.sold30d;
+  bucket.omset30d += row.omset30d;
+  bucket.omsetPerBulan += row.omsetPerBulan;
+  bucket.totalSold += row.totalSold;
+  bucket.totalOmset += row.totalOmset;
+  bucket.wishlist += row.wishlist;
+  if (row.trendPct != null) {
+    bucket.trendSum += row.trendPct;
+    bucket.trendCount += 1;
+  }
+}
+
+export function bucketMeasure(bucket: MetricBucket, metric: HistogramY): number {
+  if (metric === "count") return bucket.count;
+  if (metric === "trendPct") return bucket.trendCount ? bucket.trendSum / bucket.trendCount : 0;
+  return bucket[metric];
+}
+
 const SHOP_AGE_LABELS = ["<3 bln", "3–6 bln", "6 bln–1 thn", "1–2 thn", "2–5 thn", ">5 thn"];
 
-function numericHistogram(
-  rows: Array<{ value: number; sold30d: number }>,
-  bucketCount: number,
-  format: (min: number, max: number) => string,
-): MetricBucket[] {
+function numericHistogram(rows: HistogramRow[], bucketCount: number, format: (min: number, max: number) => string): MetricBucket[] {
   if (!rows.length) return [];
   const min = Math.min(...rows.map((row) => row.value));
   const max = Math.max(...rows.map((row) => row.value));
   const width = max === min ? 1 : (max - min) / bucketCount;
-  const buckets: MetricBucket[] = Array.from({ length: bucketCount }, (_, index) => {
+  const buckets = Array.from({ length: bucketCount }, (_, index) => {
     const start = min + index * width;
     const end = index === bucketCount - 1 ? max : start + width;
-    return { label: "", min: start, max: end, count: 0, sold30d: 0 };
+    return blankBucket(start, end);
   });
   for (const row of rows) {
     const index = Math.min(bucketCount - 1, Math.floor((row.value - min) / width));
-    buckets[index].count += 1;
-    buckets[index].sold30d += row.sold30d;
+    absorb(buckets[index], row);
   }
   return buckets.map((bucket) => ({ ...bucket, label: format(bucket.min, bucket.max) }));
 }
@@ -128,20 +207,21 @@ export function metricHistogram(
   if (!items.length) return [];
   const metrics = metricsFor(items, nowMs);
   if (dimension === "shopAge") {
-    const buckets = new Map(SHOP_AGE_LABELS.map((label) => [label, { label, min: 0, max: 0, count: 0, sold30d: 0 }]));
+    const buckets = new Map(SHOP_AGE_LABELS.map((label) => [label, { ...blankBucket(0, 0), label }]));
     for (const item of items) {
       const label = shopAgeBucket(item.shopCtime ?? shopCtimes[item.shopId], nowMs);
       const bucket = label ? buckets.get(label) : undefined;
-      if (!bucket) continue;
-      bucket.count += 1;
-      bucket.sold30d += metrics.get(item.itemId)?.sold30d ?? 0;
+      const rowMetrics = metrics.get(item.itemId);
+      if (!bucket || !rowMetrics) continue;
+      absorb(bucket, histogramRow(item, rowMetrics, 0));
     }
     return SHOP_AGE_LABELS.map((label) => buckets.get(label)!).filter((bucket) => bucket.count > 0);
   }
   const rows = items.flatMap((item) => {
-    const value = dimension === "price" ? item.price : metrics.get(item.itemId)?.ageDays;
-    if (value == null) return [];
-    return [{ value, sold30d: metrics.get(item.itemId)?.sold30d ?? 0 }];
+    const rowMetrics = metrics.get(item.itemId);
+    const value = dimension === "price" ? item.price : rowMetrics?.ageDays;
+    if (value == null || !rowMetrics) return [];
+    return [histogramRow(item, rowMetrics, value)];
   });
   const format =
     dimension === "age"

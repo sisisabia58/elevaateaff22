@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCaptions } from "./captions";
+import { buildCaptions, localThread } from "./captions";
 import { commissionView, extractOfferLink, parseCommissionList, parseCommissionPayload } from "./commission";
 import { estimateCommission, formatMoney, formatRate, marketFromHost, shopeeRawToMajor } from "./money";
 import { normalizeSettings } from "./settings";
@@ -123,6 +123,9 @@ describe("captions and settings", () => {
     expect(captions.map((caption) => caption.id)).toEqual(["cerita", "santai", "singkat"]);
     for (const caption of captions) expect(caption.text).toContain(item.name);
     expect(captions[1].text).toContain("Rp89.000");
+    const thread = localThread(item, marketFromHost("shopee.co.id"), "listicle");
+    expect(thread).toContain(item.name);
+    expect(thread).toContain("Rp89.000");
   });
 
   it("clamps a bad saved rate", () => {

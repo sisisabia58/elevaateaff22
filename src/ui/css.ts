@@ -206,6 +206,7 @@ export const elevateCss = `
   padding: 0 14px 10px;
   flex-wrap: wrap;
 }
+.ea-sort select { border: 1px solid #e6dfd2; border-radius: 10px; background: #fff; padding: 6px 8px; }
 .ea-sort button, .ea-mini {
   border: 1px solid #e6dfd2;
   background: #fff;

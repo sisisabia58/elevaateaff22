@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type HistogramDimension, type ItemMetrics } from "../shared/analytics";
+import { bucketMeasure, itemBucketIndex, metricHistogram, metricsFor, pageAnalytics, shopAgeBucket, type HistogramDimension, type HistogramY, type ItemMetrics } from "../shared/analytics";
 import { analyticsCsv, downloadText } from "../shared/csv";
 import { formatMoney } from "../shared/money";
 import type { CommissionView, Market, ScoutItem } from "../shared/types";
@@ -62,7 +62,7 @@ export function AnalisaTable({
   const [stock, setStock] = useState<StockFilter>("all");
   const [sample, setSample] = useState<SampleFilter>("all");
   const [adsOnly, setAdsOnly] = useState(false);
-  const [barMetric, setBarMetric] = useState<"count" | "sold30d">("count");
+  const [barMetric, setBarMetric] = useState<HistogramY>("count");
   const [dimension, setDimension] = useState<HistogramDimension>("price");
   const [bucket, setBucket] = useState<number | null>(null);
   const now = Date.now();
@@ -81,7 +81,8 @@ export function AnalisaTable({
     return true;
   });
   const bars = metricHistogram(searched, now, 5, dimension, shopCtimes);
-  const maxBar = Math.max(1, ...bars.map((bar) => (barMetric === "sold30d" ? bar.sold30d : bar.count)));
+  const maxBar = Math.max(1, ...bars.map((bar) => Math.abs(bucketMeasure(bar, barMetric))));
+  const missingShops = new Set(items.filter((item) => (item.shopCtime ?? shopCtimes[item.shopId]) == null).map((item) => item.shopId)).size;
   const ranged =
     bucket === null || !bars.length
       ? searched
@@ -182,28 +183,41 @@ export function AnalisaTable({
             >
               Umur toko
             </button>
-            <button type="button" aria-pressed={barMetric === "count"} onClick={() => setBarMetric("count")}>
-              Jumlah
-            </button>
-            <button type="button" aria-pressed={barMetric === "sold30d"} onClick={() => setBarMetric("sold30d")}>
-              Penjualan 30 hari
-            </button>
+            <select value={barMetric} aria-label="Tampilkan menurut" onChange={(event) => setBarMetric(event.target.value as HistogramY)}>
+              <option value="count">Jumlah produk</option>
+              <option value="sold30d">Penjualan 30 hari</option>
+              <option value="omset30d">Omset 30 hari</option>
+              <option value="omsetPerBulan">Omset/bulan</option>
+              <option value="totalSold">Total terjual</option>
+              <option value="totalOmset">Total omset</option>
+              <option value="wishlist">Wishlist</option>
+              <option value="trendPct">Trend 30 hari</option>
+            </select>
           </div>
           {bars.length > 0 ? (
             <>
               <div className="ea-bars">
-                {bars.map((bar, index) => (
-                  <button
-                    key={`${dimension}-${index}`}
-                    type="button"
-                    className="ea-bar"
-                    title={`${bar.label} · ${bar.count} produk`}
-                    aria-pressed={bucket === index}
-                    onClick={() => setBucket((current) => (current === index ? null : index))}
-                  >
-                    <span style={{ height: `${Math.max(8, ((barMetric === "sold30d" ? bar.sold30d : bar.count) / maxBar) * 72)}px` }} />
-                  </button>
-                ))}
+                {bars.map((bar, index) => {
+                  const measure = bucketMeasure(bar, barMetric);
+                  const shown =
+                    barMetric === "trendPct"
+                      ? `${measure >= 0 ? "+" : ""}${measure.toFixed(0)}%`
+                      : barMetric === "omset30d" || barMetric === "omsetPerBulan" || barMetric === "totalOmset"
+                        ? formatMoney(measure, market)
+                        : Math.round(measure).toLocaleString("id-ID");
+                  return (
+                    <button
+                      key={`${dimension}-${index}`}
+                      type="button"
+                      className="ea-bar"
+                      title={`${bar.label} · ${shown}`}
+                      aria-pressed={bucket === index}
+                      onClick={() => setBucket((current) => (current === index ? null : index))}
+                    >
+                      <span style={{ height: `${Math.max(8, (Math.abs(measure) / maxBar) * 72)}px` }} />
+                    </button>
+                  );
+                })}
               </div>
               <div className="ea-bar-labels">
                 {bars.map((bar, index) => (
@@ -249,8 +263,8 @@ export function AnalisaTable({
         ) : (
           <>
             {onShopAge && (
-              <button className="ea-btn" type="button" onClick={onShopAge}>
-                Ambil umur toko
+              <button className="ea-btn" type="button" onClick={onShopAge} disabled={missingShops === 0}>
+                {missingShops ? `Ambil umur toko (${missingShops})` : "Umur toko sudah ada"}
               </button>
             )}
             {onDeepen && (

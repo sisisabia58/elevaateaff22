@@ -758,11 +758,13 @@ function Overlay() {
       .sort((a, b) => (b.monthlySold ?? b.sold ?? 0) - (a.monthlySold ?? a.sold ?? 0))
       .slice(0, 8)
       .map((item) => item.name);
+    const relation = kind === "shop" ? readShopRelation() : null;
     return {
       summary: page,
       names,
       counts: page.count,
       averages: { price: page.averagePrice, trend: page.averageTrend, soldPerMonth: page.averageSoldPerMonth },
+      relation,
     };
   }
 
@@ -770,7 +772,8 @@ function Overlay() {
     const page = pageAnalytics(list);
     const trend = page.averageTrend === null ? "trend belum cukup" : `trend rata-rata ${page.averageTrend.toFixed(0)}%`;
     const monthly = page.averageSoldPerMonth === null ? "terjual per bulan belum cukup" : `terjual per bulan ${Math.round(page.averageSoldPerMonth).toLocaleString("id-ID")}`;
-    return `${page.count} produk, ${page.totalSold.toLocaleString("id-ID")} terjual, harga rata-rata ${formatMoney(page.averagePrice, market)}, ${monthly}, ${trend}.`;
+    const relation = kind === "shop" ? readShopRelation() : null;
+    return `${page.count} produk, ${page.totalSold.toLocaleString("id-ID")} terjual, harga rata-rata ${formatMoney(page.averagePrice, market)}, ${monthly}, ${trend}${relation ? `. ${relation}` : ""}.`;
   }
 
   async function askResearch(feature: string) {
@@ -913,14 +916,15 @@ function Overlay() {
               shopName: product.shopName,
             });
           }}
-          onThread={() => {
+          onThread={(angle) => {
             if (!product) return;
             const commission = commissions[product.itemId];
-            void askAi("5 angle", "affiliate_thread", {
+            void askAi("Thread Affiliate", "affiliate_thread", {
               name: product.name,
               price: product.price,
               commission: commission?.amount,
               tone: settings.tone,
+              angle,
             });
           }}
           onRank={() => void rankHere()}
@@ -944,12 +948,14 @@ function Overlay() {
               }}
               onThread={() => {
                 if (!product) return;
+                setCardClosed(false);
                 const commission = commissions[product.itemId];
                 void askAi("Thread Affiliate", "affiliate_thread", {
                   name: product.name,
                   price: product.price,
                   commission: commission?.amount,
                   tone: settings.tone,
+                  angle: "problem_solution",
                 });
               }}
               onImages={() => {
